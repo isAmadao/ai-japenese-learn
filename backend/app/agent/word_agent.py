@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 
 from app.agent.base_agent import BaseAgent
+from app.services.japanese_util import batch_verify_kana
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,8 @@ class WordAgent(BaseAgent):
             if isinstance(result, dict) and "words" in result:
                 result = result["words"]
             if isinstance(result, list):
+                # Verify/correct kana via MeCab before returning
+                result = batch_verify_kana(result)
                 return result[:count]
             return [result]
         except (json.JSONDecodeError, KeyError) as e:

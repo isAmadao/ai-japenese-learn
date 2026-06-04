@@ -100,6 +100,7 @@ class MilvusClient:
                 self.collections[name] = True
             self._save_fallback(_fallback_file)
             self.connected = True
+            self._using_fallback = True
             logger.info(f"✓ Numpy fallback store ready ({_fallback_file})")
         except Exception as e:
             logger.warning(f"Fallback store init failed: {e}")
