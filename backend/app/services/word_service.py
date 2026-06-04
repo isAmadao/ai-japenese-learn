@@ -19,42 +19,35 @@ class WordService:
     # ── Random words (generate → save → vector) ─────────────
 
     def get_random_words(self, db: Session, count: int = 5) -> list[Word]:
-        """Return *count* random words not favorited by user.
+        """Return *count* random words.
 
-        If the local pool has enough, returns from DB directly.
-        Otherwise triggers the WordAgent to generate new ones,
-        persists them to DB, and stores vectors in Milvus.
+        Each call generates fresh words via the WordAgent (no Redis cache),
+        persists them to DB + vector store, and excludes any words the
+        user has already favorited.  This ensures "换一批" always returns
+        genuinely new vocabulary.
         """
-        favorited_ids = [
-            f[0]
-            for f in db.query(Favorite.word_id)
-            .filter(Favorite.user_id == self.USER_ID)
-            .all()
-        ]
+        # Collect Japanese texts to avoid re-generating known words
+        all_known_japanese = set(
+            w[0] for w in db.query(Word.japanese).all()
+        )
 
-        query = db.query(Word)
-        if favorited_ids:
-            query = query.filter(~Word.id.in_(favorited_ids))
-        existing = query.order_by(func.random()).limit(count).all()
-
-        if len(existing) >= count:
-            return existing[:count]
-
-        # Need more — generate via agent
-        existing_japanese = set(w[0] for w in db.query(Word.japanese).all())
-        needed = count - len(existing)
-
+        # Generate fresh words via agent (no cache — each call is new)
         try:
             new_words_data = word_agent.generate_words(
-                count=needed + 2,
-                exclude=list(existing_japanese) if existing_japanese else None,
+                count=count + 2,  # extra to allow for dedup
+                exclude=list(all_known_japanese) if all_known_japanese else None,
+                use_cache=False,
             )
         except Exception as e:
-            return existing if existing else []
+            # Fallback: return any non-favorited words from DB
+            fallback = self._get_non_favorited(db, count)
+            if fallback:
+                return fallback
+            raise RuntimeError(f"词汇生成失败: {e}")
 
         # Persist new words to DB + vector store
-        saved_words = list(existing)
-        seen = set(existing_japanese)
+        saved_words = []
+        seen = set(all_known_japanese)
 
         for wd in new_words_data:
             jp = wd.get("japanese", "").strip()
@@ -76,8 +69,24 @@ class WordService:
 
             saved_words.append(word)
 
+            if len(saved_words) >= count:
+                break
+
         db.commit()
         return saved_words[:count]
+
+    def _get_non_favorited(self, db: Session, count: int) -> list[Word]:
+        """Fallback: return random non-favorited words from DB."""
+        favorited_ids = [
+            f[0]
+            for f in db.query(Favorite.word_id)
+            .filter(Favorite.user_id == self.USER_ID)
+            .all()
+        ]
+        query = db.query(Word)
+        if favorited_ids:
+            query = query.filter(~Word.id.in_(favorited_ids))
+        return query.order_by(func.random()).limit(count).all()
 
     # ── Word detail ─────────────────────────────────────────
 
