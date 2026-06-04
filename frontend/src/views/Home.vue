@@ -52,7 +52,7 @@ function refreshWords() {
     <div class="page-header">
       <h1>📝 今日的单词</h1>
       <button class="btn btn-primary" @click="refreshWords" :disabled="store.loading">
-        🔄 换一批
+        {{ store.loading ? '⏳ 更换中...' : '🔄 换一批' }}
       </button>
     </div>
 
