@@ -6,11 +6,13 @@ Placeholder for v1. Will be used for:
 - RAG-based learning features
 """
 
+import logging
 from typing import Optional
 
 from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType
-from loguru import logger
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class MilvusClient:
