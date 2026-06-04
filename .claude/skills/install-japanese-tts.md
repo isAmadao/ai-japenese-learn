@@ -18,6 +18,16 @@ Invoke with:
 /install-japanese-tts
 ```
 
+**⚠️ Requires Administrator privileges** for automatic installation.
+If the skill runs without admin rights, it will offer manual steps.
+
+To run with admin:
+```powershell
+# 1. Open PowerShell as Administrator
+# 2. Run:
+powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-tts.ps1
+```
+
 ## What it does
 
 1. Checks if a Japanese TTS voice is already available in the browser

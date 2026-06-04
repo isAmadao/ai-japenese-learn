@@ -10,6 +10,23 @@
 $ErrorActionPreference = "Stop"
 $Host.UI.RawUI.WindowTitle = "Japanese TTS Installation"
 
+# ── Check admin ───────────────────────────────────────────
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "⚠  This script needs Administrator privileges to install TTS voices." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "   Run as Administrator:" -ForegroundColor Cyan
+    Write-Host "   Start → 'PowerShell' → right-click → Run as Administrator" -ForegroundColor White
+    Write-Host "   cd $PSScriptRoot" -ForegroundColor Gray
+    Write-Host "   .\install-tts.ps1" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "   Or via Claude Code:" -ForegroundColor Cyan
+    Write-Host '   !powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-tts.ps1' -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "   Running detection-only mode (no install will be attempted)..." -ForegroundColor Gray
+    Write-Host ""
+}
+
 # ── 1. Check existing voices ──────────────────────────────
 Write-Host "🔍 Checking installed TTS voices..." -ForegroundColor Cyan
 
