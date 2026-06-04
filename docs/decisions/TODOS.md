@@ -6,7 +6,9 @@
 |--------|------|------|------|----------|
 | 高 | pip 文件锁补丁会随升级失效 | 环境 | 修改了 `conda env` 的 pip 源码 (`filesystem.py`)，下次 `pip install --upgrade pip` 会被覆盖。建议配置 Windows Defender 排除目录 | [002](002-vector-database-selection.md) |
 | 高 | Qwen Embedding API 不可用 | 功能 | `text-embedding-v3` 通过 OpenAI 兼容端点调用超时，当前使用哈希向量降级。需确认 DashScope 的正确 Embedding endpoint 和模型名 | [004](004-llm-provider.md) |
+| 高 | Milvus Lite 文件锁残留 | 环境 | `data/milvus.db` 在进程崩溃后锁文件不释放，需手动删除 `data/milvus.db/` 目录。因 `msvcrt.locking` 是进程级锁 | [002](002-vector-database-selection.md) |
 | 中 | 单词"换一批"每次调 LLM → Token 消耗大 | 性能 | 当前方案是每次点换一批都调 LLM 生成新词，虽然解决了重复问题，但 Token 消耗增加。优化方向：预生成一批缓存起来 | [006](006-agent-redis-cache.md) |
+| 中 | fugashi INSTALLER.tmp 文件锁 | 环境 | 和 pip 相同根因，Windows Defender 锁定 .tmp 重命名。需手动复制内容到 INSTALLER | [002](002-vector-database-selection.md) |
 
 ## 🟡 待优化
 
@@ -39,6 +41,11 @@
 | 首页单词不刷新 | 每次 `use_cache=False` 调 LLM 生成新词 | `word_service.py` |
 | 朗读用中文发音 | 显式选择日语 TTS 语音 | `utils/speech.ts` |
 | Milvus 安装失败 | pip 源码补丁 + 最终安装 Milvus Lite | `filesystem.py` |
+| 收藏按钮无响应 | WordCard emit 只传 id，Home.vue 错当 word 对象 | `Home.vue` |
+| 收藏 ID 冲突 | session id (1-5) 当 DB 主键，改为 name 去重 + 自增 id | `word_service.py` |
+| 换一批/F5 混淆 | 换一批轮转 session_id，F5 读现有 ID | `api/index.ts`, `Home.vue` |
+| LLM 假名读音错误 | fugashi + unidic 词典校验 | `japanese_util.py` |
+| Milvus Lite fallback 标记未设置 | `_setup_fallback` 漏了 `_using_fallback = True` | `milvus_client.py` |
 
 ## 标签索引
 

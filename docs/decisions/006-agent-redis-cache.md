@@ -22,13 +22,23 @@ API → Service → Agent (BaseAgent)
                      └─ Milvus 持久化
 ```
 
-### 缓存策略
+### 缓存策略 (v1 → v2 演进)
+
+**v1 (初始)**: LLM 生成 → 写入 DB → Redis 缓存 prompt 结果  
+**v2 (当前)**: LLM 生成 → Redis session 缓存 → **仅收藏时写入 DB**
 
 | 数据类型 | 缓存 Key | TTL | 说明 |
 |----------|----------|-----|------|
-| 随机单词 | `agent:llm:{sha256(prompt)}` | 1h | 默认关闭（每次生成不同单词） |
+| 随机单词 (v1) | `agent:llm:{sha256(prompt)}` | 1h | 已废弃 |
+| 随机单词 (v2) | `session_words:{session_id}` | 1h | session 隔离，F5 不走 LLM |
 | 文章生成 | `agent:llm:{sha256(words+level)}` | 2h | 相同单词+级别复用 |
 | 单词向量 | 不缓存 | — | 直接写入 Milvus |
+
+**v2 变更原因**:  
+- v1 把所有单词都持久化到 DB，DB 膨胀且 session id(1-5) 与 DB 主键冲突  
+- v2 改为 Redis session 缓存，前端 localStorage 存 session_id  
+- "换一批" 轮转 session_id → Redis 未命中 → LLM 生成  
+- F5 读现有 session_id → Redis 命中 → 同批单词
 
 ### 降级策略
 

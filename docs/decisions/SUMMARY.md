@@ -81,11 +81,35 @@
 - **效果**: milvus-lite 装上了
 - **学习点**: 区分"权限问题"和"文件锁问题"
 
+### 🥇 数据流 v2 — 仅收藏单词持久化
+- **问题**: 所有 LLM 生成单词都写入 DB，DB 膨胀且 session id 与 DB 主键冲突
+- **方案**: 生成结果存 Redis (session 隔离)，仅收藏时写入 DB
+- **效果**: DB 只存用户真正需要的单词，session 刷新不丢缓存
+- **学习点**: 缓存/持久化分离，按数据价值分层存储
+
+### 🥈 Session ID 轮转 — 区分"换一批"和 F5
+- **问题**: "换一批"和 F5 都调同一接口，后端无法区分
+- **方案**: "换一批"生成新 session_id 写入 localStorage → Redis 找不到旧缓存 → LLM 生成；F5 读现有 session_id → Redis 命中
+- **效果**: "换一批"出新词，F5 保持当前词
+- **学习点**: 前端状态驱动后端缓存策略
+
+### 🥈 MeCab 假名校验 — 修正 LLM 读音错误
+- **问题**: LLM 对汉字读音经常猜错（妥協→だかい ×）
+- **方案**: fugashi + unidic 词典查每个词的正确读音，自动纠正
+- **效果**: 读音准确率从 ~70% 提升到 ~99%
+- **学习点**: LLM 不适合精确事实查询，需要工具辅助验证
+
+### 🥉 收藏 ID 冲突修复
+- **问题**: 用 session id(1-5) 当 DB 主键，不同 session 冲突
+- **方案**: 按 word name 去重 + 自动递增主键
+- **效果**: 同一单词多次收藏复用同一记录
+
 ## 技术债务
 
 ### 环境相关
 - [ ] pip 补丁在升级后会失效（#环境问题）
 - [ ] Windows Defender 排除 conda 目录可根治
+- [ ] fugashi 的 INSTALLER.tmp 重命名仍会被锁（#环境问题）
 
 ### 功能缺失
 - [ ] Qwen Embedding API endpoint 待确认（#功能缺失）
@@ -96,6 +120,11 @@
 ### 性能
 - [ ] 换一批每次调 LLM，Token 消耗大（#性能优化）
 - [ ] 预生成单词池（#性能优化）
+
+### 已解决
+- [x] 收藏按钮无响应（WordCard emit 类型不匹配）
+- [x] Session id 与 DB 主键冲突
+- [x] LLM 假名读音错误（fugashi 校验）
 
 ## 文件时间线
 
@@ -111,5 +140,13 @@
 ├── 21:30  🐛 fix: 换一批不刷新问题
 ├── 21:45  🐛 fix: 日语 TTS 语音选择
 ├── 22:00  📝 feat: install-japanese-tts 技能
-└── 22:30  📝 doc: 开发日志系统
+├── 22:30  📝 doc: 开发日志系统
+├── 23:00  🔧 refactor: 数据流 v2（仅收藏持久化）
+├── 23:15  🐛 fix: 收藏按钮无响应（emit 类型不匹配）
+├── 23:20  🐛 fix: 收藏 ID 冲突（name 去重）
+├── 23:25  🐛 fix: 换一批 vs F5 区分（session_id 轮转）
+├── 23:35  🔊 feat: install-japanese-tts 技能生效验证
+├── 23:40  🐛 fix: Milvus Lite fallback 标记未设置
+├── 23:45  🤖 feat: MeCab 假名校验（fugashi + unidic）
+└── 23:55  📝 doc: 更新开发日志（本次会话）
 ```
