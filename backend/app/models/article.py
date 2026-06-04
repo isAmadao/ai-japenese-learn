@@ -39,12 +39,3 @@ class Article(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "words": [w.to_dict() for w in self.words] if self.words else [],
         }
-
-
-class ArticleWord(Base):
-    """Explicit model for article-word associations (if more fields needed later)."""
-    __tablename__ = "article_words"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False)
-    word_id = Column(Integer, ForeignKey("words.id", ondelete="CASCADE"), nullable=False)
