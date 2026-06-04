@@ -120,3 +120,22 @@ speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja'))
 - [ ] Redis 缓存优化
 - [ ] 单词学习进度追踪
 - [ ] SRS 间隔重复记忆
+
+## 📝 开发日志
+
+项目所有技术决策、优化记录、问题排查和遗留事项统一记录在 [`docs/decisions/`](docs/decisions/) 目录：
+
+| 文件 | 内容 |
+|------|------|
+| [SUMMARY.md](docs/decisions/SUMMARY.md) | 📊 架构全景 + 关键优化点速览 |
+| [TODOS.md](docs/decisions/TODOS.md) | 📋 遗留问题 & 待办事项 |
+| [001-database-selection.md](docs/decisions/001-database-selection.md) | 关系型数据库选型 |
+| [002-vector-database-selection.md](docs/decisions/002-vector-database-selection.md) | 向量数据库选型 |
+| [003-backend-framework.md](docs/decisions/003-backend-framework.md) | 后端框架 & LLM 集成 |
+| [004-llm-provider.md](docs/decisions/004-llm-provider.md) | LLM 供应商选择 |
+| [005-frontend-framework.md](docs/decisions/005-frontend-framework.md) | 前端框架 |
+| [006-agent-redis-cache.md](docs/decisions/006-agent-redis-cache.md) | Agent + Redis 缓存系统 |
+| [007-streaming-sse.md](docs/decisions/007-streaming-sse.md) | SSE 流式输出 |
+| [008-containerization.md](docs/decisions/008-containerization.md) | 容器化方案 |
+
+每条决策记录包含：**问题→方案→选型原因→优化效果→经验教训**，便于 AI 和开发者快速了解项目上下文。
