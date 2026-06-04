@@ -26,12 +26,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠ Redis unavailable: {e}")
 
-    # Try connecting Milvus (non-fatal) and setup collections
+    # Try starting Milvus Lite (non-fatal)
     try:
-        milvus_client.connect()
-        milvus_client.setup_collections()
+        milvus_client.setup()
     except Exception as e:
-        print(f"⚠ Milvus unavailable: {e}")
+        print(f"⚠ Milvus Lite unavailable: {e}")
 
     yield
 

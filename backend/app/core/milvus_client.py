@@ -1,135 +1,96 @@
-"""Milvus vector database — stores embeddings for words and articles.
+"""Local vector store — numpy-based, file-persisted, no external service needed.
 
-Collections:
-  - word_vectors: word embeddings for semantic similarity search
-  - article_vectors: article embeddings for content-based retrieval
+API mirrors pymilvus so the rest of the app is insulated.
+Swap for real Milvus/Chroma later by replacing just this module.
+
+Data stored as JSON in ./data/vectors.json (human-readable, easy to debug).
+For < 10K vectors brute-force cosine similarity is perfectly adequate.
 """
 
+import json
 import logging
+import os
+from pathlib import Path
 from typing import Any, Optional
 
-from pymilvus import connections, Collection, CollectionSchema, FieldSchema, DataType, utility
-from app.core.config import settings
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Embedding dimension for text-embedding-v3 (DashScope / Qwen)
+_VECTOR_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+_VECTOR_FILE = str(_VECTOR_DIR / "vectors.json")
 EMBEDDING_DIM = 1024
 
 
 class MilvusClient:
-    """Milvus wrapper — creates collections on startup, provides insert/search."""
+    """Lightweight local vector store (stand-in for real Milvus).
 
-    def __init__(self):
-        self.connected = False
-        self.collections: dict[str, Collection] = {}
-
-    # ── Connection ──────────────────────────────────────────
-
-    def connect(self):
-        try:
-            connections.connect(
-                alias="default",
-                host=settings.MILVUS_HOST,
-                port=settings.MILVUS_PORT,
-            )
-            self.connected = True
-            logger.info("Milvus connected")
-        except Exception as e:
-            logger.warning(f"Milvus connection failed (non-fatal): {e}")
-            self.connected = False
-
-    def disconnect(self):
-        if self.connected:
-            connections.disconnect("default")
-            self.connected = False
-
-    # ── Collection management ───────────────────────────────
+    Collections are stored as in-memory lists and persisted to JSON.
+    Search uses brute-force cosine similarity.
+    """
 
     WORD_COLLECTION = "word_vectors"
     ARTICLE_COLLECTION = "article_vectors"
 
-    def _word_schema(self) -> CollectionSchema:
-        fields = [
-            FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
-            FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIM),
-            FieldSchema(name="word_id", dtype=DataType.INT64),
-            FieldSchema(name="japanese", dtype=DataType.VARCHAR, max_length=100),
-            FieldSchema(name="kana", dtype=DataType.VARCHAR, max_length=200),
-            FieldSchema(name="chinese_meaning", dtype=DataType.VARCHAR, max_length=300),
-        ]
-        return CollectionSchema(fields, description="Japanese word vectors")
+    def __init__(self):
+        self._data: dict[str, list[dict]] = {}
+        self.connected = False
+        self.collections: dict[str, bool] = {}
 
-    def _article_schema(self) -> CollectionSchema:
-        fields = [
-            FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
-            FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDING_DIM),
-            FieldSchema(name="article_id", dtype=DataType.INT64),
-            FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=200),
-            FieldSchema(name="level", dtype=DataType.VARCHAR, max_length=10),
-        ]
-        return CollectionSchema(fields, description="Article vectors")
+    # ── Lifecycle ──────────────────────────────────────────
 
-    def setup_collections(self):
-        """Ensure word and article collections exist."""
-        if not self.connected:
-            logger.info("Milvus not connected — skipping collection setup")
-            return
-
-        for name, schema, desc in [
-            (self.WORD_COLLECTION, self._word_schema(), "words"),
-            (self.ARTICLE_COLLECTION, self._article_schema(), "articles"),
-        ]:
-            if utility.has_collection(name):
-                col = Collection(name)
-                col.load()
-                logger.info(f"  Milvus collection '{name}' ({desc}) loaded")
+    def setup(self):
+        """Load persisted vectors from disk (or start fresh)."""
+        os.makedirs(str(_VECTOR_DIR), exist_ok=True)
+        try:
+            if os.path.exists(_VECTOR_FILE):
+                with open(_VECTOR_FILE, "r", encoding="utf-8") as f:
+                    self._data = json.load(f)
+                logger.info(f"✓ Vector store loaded ({_VECTOR_FILE})")
             else:
-                col = Collection(name=name, schema=schema)
-                # Create IVF_FLAT index for search
-                index_params = {
-                    "metric_type": "IP",  # inner product
-                    "index_type": "IVF_FLAT",
-                    "params": {"nlist": 128},
-                }
-                col.create_index(field_name="vector", index_params=index_params)
-                col.load()
-                logger.info(f"  Milvus collection '{name}' ({desc}) created")
-            self.collections[name] = col
+                self._data = {}
+                self._save()
+                logger.info(f"✓ Vector store created ({_VECTOR_FILE})")
+            self.connected = True
+            # Register known collections
+            for name in [self.WORD_COLLECTION, self.ARTICLE_COLLECTION]:
+                if name not in self._data:
+                    self._data[name] = []
+                self.collections[name] = True
+            self._save()
+        except Exception as e:
+            logger.warning(f"⚠ Vector store init failed: {e}")
+            self.connected = False
 
-    # ── CRUD ────────────────────────────────────────────────
+    def disconnect(self):
+        self._save()
+        logger.info("Vector store saved & closed")
+
+    def _save(self):
+        try:
+            with open(_VECTOR_FILE, "w", encoding="utf-8") as f:
+                json.dump(self._data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.warning(f"Vector store save failed: {e}")
+
+    # ── CRUD ───────────────────────────────────────────────
 
     def insert(self, collection_name: str, vector: list[float], metadata: dict) -> bool:
-        """Insert a vector + metadata into the specified collection."""
+        """Append a vector + metadata entry."""
         if collection_name not in self.collections:
-            logger.warning(f"Collection '{collection_name}' not loaded")
+            logger.warning(f"Unknown collection '{collection_name}'")
             return False
         try:
-            col = self.collections[collection_name]
-            if collection_name == self.WORD_COLLECTION:
-                data = [
-                    [metadata.get("id", 0)],
-                    [vector],
-                    [metadata.get("word_id", 0)],
-                    [metadata.get("japanese", "")],
-                    [metadata.get("kana", "")],
-                    [metadata.get("chinese_meaning", "")],
-                ]
-            elif collection_name == self.ARTICLE_COLLECTION:
-                data = [
-                    [metadata.get("id", 0)],
-                    [vector],
-                    [metadata.get("article_id", 0)],
-                    [metadata.get("title", "")],
-                    [metadata.get("level", "")],
-                ]
-            else:
-                return False
-            col.insert(data)
-            col.flush()
+            entry = {
+                "id": metadata.get("id", 0),
+                "vector": vector,
+                **{k: v for k, v in metadata.items() if k != "vector"},
+            }
+            self._data.setdefault(collection_name, []).append(entry)
+            self._save()
             return True
         except Exception as e:
-            logger.warning(f"Milvus insert failed: {e}")
+            logger.warning(f"Vector insert failed: {e}")
             return False
 
     def search(
@@ -138,42 +99,48 @@ class MilvusClient:
         query_vector: list[float],
         top_k: int = 10,
     ) -> list[dict[str, Any]]:
-        """Search for similar vectors. Returns list of hit dicts."""
+        """Brute-force cosine similarity search."""
         if collection_name not in self.collections:
-            return []
-        try:
-            col = self.collections[collection_name]
-            col.load()
-            results = col.search(
-                data=[query_vector],
-                anns_field="vector",
-                param={"metric_type": "IP", "params": {"nprobe": 10}},
-                limit=top_k,
-                output_fields=["*"],
-            )
-            hits = []
-            for hits_group in results:
-                for hit in hits_group:
-                    hits.append({
-                        "id": hit.id,
-                        "distance": hit.distance,
-                        "entity": hit.entity.to_dict() if hasattr(hit, "entity") else {},
-                    })
-            return hits
-        except Exception as e:
-            logger.warning(f"Milvus search failed: {e}")
             return []
 
-    def delete_by_id(self, collection_name: str, pk: int):
-        """Delete a vector by primary key."""
+        items = self._data.get(collection_name, [])
+        if not items:
+            return []
+
+        q = np.array(query_vector, dtype=np.float32)
+        q_norm = np.linalg.norm(q)
+        if q_norm == 0:
+            return []
+        q = q / q_norm
+
+        scored = []
+        for item in items:
+            v = np.array(item.get("vector", []), dtype=np.float32)
+            v_norm = np.linalg.norm(v)
+            if v_norm == 0:
+                continue
+            similarity = float(np.dot(q, v / v_norm))
+            scored.append((similarity, item))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top = scored[:top_k]
+
+        return [
+            {
+                "id": item["id"],
+                "distance": score,
+                "entity": {k: v for k, v in item.items() if k != "vector"},
+            }
+            for score, item in top
+        ]
+
+    def delete_by_entity_id(self, collection_name: str, entity_id: int):
+        """Remove entry where 'id' matches."""
         if collection_name not in self.collections:
             return
-        try:
-            col = self.collections[collection_name]
-            col.delete(f"id in [{pk}]")
-            col.flush()
-        except Exception as e:
-            logger.warning(f"Milvus delete failed: {e}")
+        items = self._data.get(collection_name, [])
+        self._data[collection_name] = [i for i in items if i.get("id") != entity_id]
+        self._save()
 
 
 milvus_client = MilvusClient()

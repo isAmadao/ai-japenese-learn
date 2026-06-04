@@ -45,11 +45,15 @@ class BaseAgent:
     @property
     def embeddings(self) -> OpenAIEmbeddings:
         if self._embeddings is None:
-            self._embeddings = OpenAIEmbeddings(
-                model=settings.LLM_EMBEDDING_MODEL,
-                api_key=settings.LLM_API_KEY,
-                base_url=settings.LLM_API_BASE,
-            )
+            try:
+                self._embeddings = OpenAIEmbeddings(
+                    model=settings.LLM_EMBEDDING_MODEL,
+                    api_key=settings.LLM_API_KEY,
+                    base_url=settings.LLM_API_BASE,
+                )
+            except Exception as e:
+                logger.warning(f"Embeddings init failed: {e}")
+                self._embeddings = None  # type: ignore
         return self._embeddings
 
     # ── LLM call with optional Redis cache ──────────────────
@@ -127,20 +131,54 @@ class BaseAgent:
 
     # ── Vector storage helpers ──────────────────────────────
 
+    @staticmethod
+    def _make_deterministic_vector(text: str, dim: int = 1024) -> list[float]:
+        """Generate a deterministic unit vector from text hash.
+
+        Used as fallback when the external embedding API is unavailable.
+        Produces the same vector for the same text (deterministic).
+        """
+        h = hashlib.sha256(text.encode("utf-8")).digest()
+        # Expand hash bytes to fill the vector dimension
+        vec = []
+        for i in range(dim):
+            b = h[i % len(h)] ^ h[(i + 1) % len(h)] ^ h[(i * 7) % len(h)]
+            vec.append((b - 127) / 128.0)
+        # Normalize
+        norm = sum(x * x for x in vec) ** 0.5
+        if norm > 0:
+            vec = [x / norm for x in vec]
+        return vec
+
     def _embed_and_store(
         self,
         collection_name: str,
         text: str,
         metadata: dict,
     ) -> bool:
-        """Embed *text* and store the vector in Milvus.
+        """Embed *text* and store the vector.
 
-        Returns True on success, False if Milvus is unavailable.
+        Tries the configured embedding API first; falls back to a
+        deterministic hash-based vector when the API is unavailable.
         """
+        vector: Optional[list[float]] = None
+
+        # Try API embedding first
         try:
-            vector = self.embeddings.embed_query(text)
+            emb = self.embeddings
+            if emb is not None:
+                vector = emb.embed_query(text)
+                logger.debug(f"API embedding OK, dim={len(vector)}")
+        except Exception:
+            logger.debug("API embedding unavailable, using hash fallback")
+
+        # Fallback to deterministic vector
+        if vector is None:
+            vector = self._make_deterministic_vector(text, dim=1024)
+
+        try:
             milvus_client.insert(collection_name, vector, metadata)
             return True
         except Exception as e:
-            logger.warning(f"Failed to store vector in Milvus: {e}")
+            logger.warning(f"Failed to store vector: {e}")
             return False
