@@ -2,13 +2,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchFavorites, generateArticleStream } from '@/api'
-import type { Word } from '@/types'
+import type { WordResponse } from '@/types'
 import WordCard from '@/components/WordCard.vue'
 
 const router = useRouter()
 
 // -- Favorites list state --
-const words = ref<Word[]>([])
+const words = ref<WordResponse[]>([])
 const total = ref(0)
 const page = ref(1)
 const totalPages = ref(1)

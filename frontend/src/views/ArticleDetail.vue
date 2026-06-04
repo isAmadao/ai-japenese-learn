@@ -72,7 +72,7 @@ async function loadArticle() {
             :to="`/word/${w.id}`"
             class="word-chip"
           >
-            <span class="chip-jp">{{ w.japanese }}</span>
+            <span class="chip-jp">{{ w.name }}</span>
             <span class="chip-kana">{{ w.kana }}</span>
           </router-link>
         </div>

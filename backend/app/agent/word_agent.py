@@ -1,10 +1,7 @@
 """WordAgent — generates Japanese vocabulary with Redis caching and Milvus vector storage.
 
-Flow:
-  1. Check Redis cache for identical generation request
-  2. If miss → call LLM → parse JSON → cache in Redis
-  3. Return parsed word list; the caller (service) handles DB persistence
-  4. Caller also triggers vector storage after DB save
+Output fields (new LLM response format):
+  name, kana, translation, description, type (N1-N5), example_sentences
 """
 
 import json
@@ -12,7 +9,6 @@ import logging
 from typing import Optional
 
 from app.agent.base_agent import BaseAgent
-from app.core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +25,7 @@ class WordAgent(BaseAgent):
         """Generate *count* random Japanese words.
 
         Returns a list of dicts with keys:
-          japanese, kana, chinese_meaning, example_sentences
+          name, kana, translation, description, type, example_sentences
         """
         exclude_str = ""
         if exclude:
@@ -39,20 +35,22 @@ class WordAgent(BaseAgent):
         user_prompt = f"""你是一位专业的日语教师。请生成 {count} 个常用的日语单词，用于日语学习应用。
 
 每个单词必须包含以下字段（以JSON格式返回）：
-- japanese: 日语表记（汉字/假名）
+- name: 日语表记（汉字/假名）
 - kana: 假名读音（平假名）
-- chinese_meaning: 中文释义
+- translation: 中文释义
+- description: 简要用法说明或记忆提示（一两句话）
+- type: 难度级别，从 N5（最简单）到 N1（最困难）
 - example_sentences: 3个例句数组，每个例句包含 {{"japanese": "日语句子", "chinese": "中文翻译"}}
 
 要求：
-1. 单词覆盖不同词性（名词、动词、形容词等）
-2. 难度在N5-N3之间，适合初中级学习者
-3. 例句实用且自然，能体现单词的典型用法
-4. 例句难度与单词级别匹配
+1. 单词覆盖不同词性（名词、动词、形容词、副词等）
+2. 难度覆盖N5-N1，每批至少包含2个不同级别
+3. 例句实用自然，能体现单词的典型用法
+4. description 给出简短记忆技巧或区别说明
 {exclude_str}
 
-请直接返回JSON数组（不要加markdown代码块标记，直接返回纯JSON），格式：
-[{{"japanese":"言葉","kana":"ことば","chinese_meaning":"语言/单词","example_sentences":[{{"japanese":"...","chinese":"..."}}]}}]
+请直接返回JSON数组，格式：
+[{{"name":"言葉","kana":"ことば","translation":"语言/单词","description":"指广义的语言或话语","type":"N5","example_sentences":[{{"japanese":"...","chinese":"..."}}]}}]
 """
 
         raw = self._generate(system_msg, user_prompt, use_cache=use_cache, cache_ttl=3600)
@@ -69,16 +67,21 @@ class WordAgent(BaseAgent):
 
     def store_vector(self, word_id: int, word_dict: dict):
         """Generate embedding and store in Milvus."""
-        text = f"{word_dict['japanese']} {word_dict.get('kana', '')} {word_dict.get('chinese_meaning', '')}"
+        text = (
+            f"{word_dict.get('name', '')} "
+            f"{word_dict.get('kana', '')} "
+            f"{word_dict.get('translation', '')}"
+        )
         self._embed_and_store(
-            milvus_client.WORD_COLLECTION,  # type: ignore  (will be resolved at runtime)
+            milvus_client.WORD_COLLECTION,
             text,
             {
                 "id": word_id,
                 "word_id": word_id,
-                "japanese": word_dict.get("japanese", ""),
+                "name": word_dict.get("name", ""),
                 "kana": word_dict.get("kana", ""),
-                "chinese_meaning": word_dict.get("chinese_meaning", ""),
+                "translation": word_dict.get("translation", ""),
+                "type": word_dict.get("type", ""),
             },
         )
 

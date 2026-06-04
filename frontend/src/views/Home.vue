@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWordStore } from '@/stores/word'
-import type { Word } from '@/types'
 import WordCard from '@/components/WordCard.vue'
 
 const router = useRouter()
@@ -13,12 +12,22 @@ onMounted(() => {
   store.loadRandomWords(5)
 })
 
-async function handleFavorite(id: number) {
-  const isFav = await store.toggleWordFavorite(id)
+async function handleFavorite(word: any) {
+  const isFav = await store.toggleWordFavorite(
+    word.id,
+    {
+      name: word.name,
+      kana: word.kana,
+      translation: word.translation,
+      description: word.description,
+      type: word.type,
+      example_sentences: word.example_sentences,
+    },
+  )
   if (isFav) {
-    favoritedIds.value.add(id)
+    favoritedIds.value.add(word.id)
   } else {
-    favoritedIds.value.delete(id)
+    favoritedIds.value.delete(word.id)
   }
 }
 
@@ -42,21 +51,16 @@ function refreshWords() {
 
     <p class="subtitle">随机生成五个日语单词，点击收藏保存到你的单词本</p>
 
-    <!-- Loading State -->
     <div v-if="store.loading && store.currentWords.length === 0" class="loading">
       <p>正在生成单词...</p>
       <p class="hint">首次使用需要调用 AI 生成，请稍候</p>
     </div>
 
-    <!-- Error State -->
     <div v-else-if="store.error" class="error-msg">
       <p>⚠ {{ store.error }}</p>
-      <button class="btn btn-primary btn-sm" style="margin-top: 12px" @click="refreshWords">
-        重试
-      </button>
+      <button class="btn btn-primary btn-sm" style="margin-top: 12px" @click="refreshWords">重试</button>
     </div>
 
-    <!-- Word Cards -->
     <div v-else-if="store.currentWords.length > 0" class="word-grid">
       <WordCard
         v-for="word in store.currentWords"
@@ -68,7 +72,6 @@ function refreshWords() {
       />
     </div>
 
-    <!-- Empty State -->
     <div v-else class="empty-state">
       <p>暂无单词数据</p>
       <button class="btn btn-primary btn-sm" @click="refreshWords">开始生成</button>
@@ -77,32 +80,9 @@ function refreshWords() {
 </template>
 
 <style scoped>
-.home {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.subtitle {
-  color: var(--text-light);
-  margin-bottom: 24px;
-  font-size: 0.9rem;
-}
-
-.word-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.hint {
-  font-size: 0.85rem;
-  color: var(--text-light);
-  margin-top: 8px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px;
-  color: var(--text-light);
-}
+.home { max-width: 900px; margin: 0 auto; }
+.subtitle { color: var(--text-light); margin-bottom: 24px; font-size: 0.9rem; }
+.word-grid { display: flex; flex-direction: column; gap: 16px; }
+.hint { font-size: 0.85rem; color: var(--text-light); margin-top: 8px; }
+.empty-state { text-align: center; padding: 60px; color: var(--text-light); }
 </style>

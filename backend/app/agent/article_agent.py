@@ -41,14 +41,14 @@ class ArticleAgent(BaseAgent):
         Returns dict with keys: title, content_japanese, content_chinese
         """
         word_lines = "\n".join(
-            f"- {w['japanese']}（{w.get('kana', '')}）: {w.get('chinese_meaning', '')}"
+            f"- {w['name']}（{w.get('kana', '')}）: {w.get('translation', '')}"
             for w in words
         )
         level_desc = _LEVEL_HINTS.get(level, "使用中等难度句型")
 
         # Build a cache key from the word texts + level so identical sets
         # of words at the same level are only generated once.
-        word_signatures = sorted(w["japanese"] for w in words)
+        word_signatures = sorted(w.get("name", "") for w in words)
 
         system_msg = "你是一位专业的日语教师，擅长生成教学用的日语短文。请始终用JSON格式回复。"
         user_prompt = f"""你是一位专业的日语教师。请使用以下日语单词创作一篇短文，用于教学。
@@ -92,7 +92,7 @@ class ArticleAgent(BaseAgent):
     def generate_article_stream(self, words: list[dict], level: str):
         """Stream article generation token-by-token (no caching for streams)."""
         word_lines = "\n".join(
-            f"- {w['japanese']}（{w.get('kana', '')}）: {w.get('chinese_meaning', '')}"
+            f"- {w['name']}（{w.get('kana', '')}）: {w.get('translation', '')}"
             for w in words
         )
         level_desc = _LEVEL_HINTS.get(level, "使用中等难度句型")

@@ -1,33 +1,50 @@
 /** API client — communicates with the FastAPI backend */
 
 import axios from 'axios'
-import type { Word, WordDetail, Article, PaginatedResponse } from '@/types'
+import type { CachedWord, WordDetailResponse, Article, PaginatedResponse } from '@/types'
 
 const http = axios.create({
   baseURL: '/api',
   timeout: 60000,
 })
 
-/** Get random words (excluding favorited) */
-export async function fetchRandomWords(count = 5): Promise<Word[]> {
-  const { data } = await http.get('/words/random', { params: { count } })
+/** Generate or retrieve a stable session id (stored in localStorage) */
+export function getSessionId(): string {
+  const KEY = 'ai_jp_session_id'
+  let sid = localStorage.getItem(KEY)
+  if (!sid) {
+    sid = crypto.randomUUID?.() || Math.random().toString(36).slice(2, 18)
+    localStorage.setItem(KEY, sid)
+  }
+  return sid
+}
+
+/** Get random words (session-cached via Redis — same session = same batch) */
+export async function fetchRandomWords(count = 5): Promise<CachedWord[]> {
+  const session_id = getSessionId()
+  const { data } = await http.get('/words/random', {
+    params: { count, session_id },
+  })
   return data.words
 }
 
-/** Get word detail with favorite status and related articles */
-export async function fetchWordDetail(id: number): Promise<WordDetail> {
+/** Get word detail (from DB, for favorited words) */
+export async function fetchWordDetail(id: number): Promise<WordDetailResponse> {
   const { data } = await http.get(`/words/${id}`)
   return data
 }
 
-/** Toggle word favorite status */
-export async function toggleFavorite(id: number): Promise<{ is_favorited: boolean; message: string }> {
-  const { data } = await http.post(`/words/${id}/favorite`)
+/** Toggle word favorite status.  *ext* should contain the cached word data. */
+export async function toggleFavorite(
+  id: number,
+  ext?: Record<string, any>,
+): Promise<{ is_favorited: boolean; message: string }> {
+  const { data } = await http.post(`/words/${id}/favorite`, { ext })
   return data
 }
 
 /** Get paginated favorites */
-export async function fetchFavorites(page = 1, pageSize = 30): Promise<PaginatedResponse<Word>> {
+export async function fetchFavorites(page = 1, pageSize = 30): Promise<PaginatedResponse> {
   const { data } = await http.get('/favorites', { params: { page, page_size: pageSize } })
   return data
 }
@@ -44,7 +61,7 @@ export async function fetchArticle(id: number): Promise<Article> {
   return data
 }
 
-// --- SSE streaming for article generation ---
+// --- SSE streaming ---
 
 export interface SSEEvent {
   type: 'token' | 'done' | 'error'
@@ -53,10 +70,6 @@ export interface SSEEvent {
   message?: string
 }
 
-/**
- * Generate article via SSE streaming.
- * Calls onToken for each chunk, onDone when finished, onError on failure.
- */
 export async function generateArticleStream(
   wordIds: number[],
   level: string,
@@ -70,43 +83,30 @@ export async function generateArticleStream(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ word_ids: wordIds, level }),
     })
-
     if (!response.ok) {
       const err = await response.json().catch(() => ({ detail: '请求失败' }))
       onError(err.detail || `HTTP ${response.status}`)
       return
     }
-
     const reader = response.body!.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
-
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-
       buffer += decoder.decode(value, { stream: true })
       const parts = buffer.split('\n\n')
       buffer = parts.pop() || ''
-
       for (const part of parts) {
         if (!part.startsWith('data: ')) continue
         try {
           const event: SSEEvent = JSON.parse(part.slice(6))
           switch (event.type) {
-            case 'token':
-              onToken(event.content || '')
-              break
-            case 'done':
-              onDone(event.article_id || 0)
-              return
-            case 'error':
-              onError(event.message || '未知错误')
-              return
+            case 'token': onToken(event.content || ''); break
+            case 'done': onDone(event.article_id || 0); return
+            case 'error': onError(event.message || '未知错误'); return
           }
-        } catch {
-          // skip malformed events
-        }
+        } catch { /* skip malformed */ }
       }
     }
   } catch (e: any) {

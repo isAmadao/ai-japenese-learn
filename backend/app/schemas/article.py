@@ -1,6 +1,5 @@
 """Pydantic schemas for article-related API requests/responses."""
 
-from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -8,9 +7,13 @@ from pydantic import BaseModel
 
 class ArticleWordBrief(BaseModel):
     id: int
-    japanese: str
+    name: str
     kana: str
-    chinese_meaning: str
+    translation: str
+    type: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 class ArticleResponse(BaseModel):

@@ -42,7 +42,7 @@ def generate_article(
         raise HTTPException(status_code=404, detail="未找到指定的单词")
 
     words_data = [
-        {"id": w.id, "japanese": w.japanese, "kana": w.kana, "chinese_meaning": w.chinese_meaning}
+        {"id": w.id, "name": w.name, "kana": w.kana, "translation": w.translation, "type": w.type}
         for w in article.words
     ]
     article_resp = ArticleResponse(
@@ -141,7 +141,7 @@ def get_article(article_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="文章未找到")
 
     words_data = [
-        {"id": w.id, "japanese": w.japanese, "kana": w.kana, "chinese_meaning": w.chinese_meaning}
+        {"id": w.id, "name": w.name, "kana": w.kana, "translation": w.translation, "type": w.type}
         for w in article.words
     ]
     return ArticleResponse(
