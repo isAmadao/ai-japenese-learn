@@ -45,6 +45,11 @@ class Settings:
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
     LLM_API_BASE: str = os.getenv("LLM_API_BASE", "https://dashscope.aliyuncs.com/compatible-mode/v1")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen-plus")
+    LLM_EMBEDDING_MODEL: str = os.getenv("LLM_EMBEDDING_MODEL", "text-embedding-v3")
+
+    # Redis cache TTL (seconds)
+    CACHE_TTL_WORDS: int = int(os.getenv("CACHE_TTL_WORDS", "3600"))
+    CACHE_TTL_ARTICLE: int = int(os.getenv("CACHE_TTL_ARTICLE", "7200"))
 
 
 settings = Settings()

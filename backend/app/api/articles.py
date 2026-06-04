@@ -13,7 +13,7 @@ from app.schemas.article import (
     ArticleResponse,
 )
 from app.services.article_service import article_service
-from app.services.llm_service import llm_service
+from app.agent.article_agent import article_agent
 from app.models.word import Word
 from app.models.article import Article, article_words
 
@@ -84,13 +84,13 @@ def generate_article_stream(request: ArticleGenerateRequest):
             word_dicts = [w.to_dict() for w in words]
             buffer = ""
 
-            # Stream each token from LLM
-            for text_chunk in llm_service.generate_article_stream(word_dicts, request.level):
+            # Stream each token from ArticleAgent
+            for text_chunk in article_agent.generate_article_stream(word_dicts, request.level):
                 buffer += text_chunk
                 yield f"data: {json.dumps({'type': 'token', 'content': text_chunk})}\n\n"
 
             # Parse the accumulated JSON response
-            result = llm_service._extract_json(buffer)
+            result = article_agent._extract_json(buffer)
             if isinstance(result, list):
                 result = result[0]
 
@@ -104,7 +104,6 @@ def generate_article_stream(request: ArticleGenerateRequest):
             db.add(article)
             db.flush()
 
-            # Associate with words
             for word in words:
                 db.execute(
                     article_words.insert().values(
@@ -115,6 +114,13 @@ def generate_article_stream(request: ArticleGenerateRequest):
 
             db.commit()
             db.refresh(article)
+
+            # Store vector in Milvus
+            article_agent.store_vector(article.id, {
+                "title": result.get("title", ""),
+                "content_japanese": result.get("content_japanese", ""),
+                "level": request.level,
+            })
 
             yield f"data: {json.dumps({'type': 'done', 'article_id': article.id})}\n\n"
 
