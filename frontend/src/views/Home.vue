@@ -39,8 +39,11 @@ function goToDetail(id: number) {
   router.push(`/word/${id}`)
 }
 
+import { refreshSessionId } from '@/api'
+
 function refreshWords() {
-  store.loadRandomWords(5)
+  refreshSessionId()         // 换新的 session_id → Redis 找不到旧缓存 → LLM 生成新词
+  store.loadRandomWords(5)   // F5 刷新时读的还是这个新 id → 不会再变
 }
 </script>
 

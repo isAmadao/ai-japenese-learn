@@ -19,6 +19,15 @@ export function getSessionId(): string {
   return sid
 }
 
+/** Replace the session id with a new one — forces "换一批" to get different words.
+ *  F5 / page refresh still reads the NEW id and finds its cache. */
+export function refreshSessionId(): string {
+  const KEY = 'ai_jp_session_id'
+  const sid = crypto.randomUUID?.() || Math.random().toString(36).slice(2, 18)
+  localStorage.setItem(KEY, sid)
+  return sid
+}
+
 /** Get random words (session-cached via Redis — same session = same batch) */
 export async function fetchRandomWords(count = 5): Promise<CachedWord[]> {
   const session_id = getSessionId()
