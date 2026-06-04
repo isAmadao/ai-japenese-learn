@@ -129,52 +129,52 @@ class WordService:
         self, db: Session, word_id: int,
         ext: Optional[dict] = None,
     ) -> dict:
-        """Toggle favorite status for a cached word.
+        """Toggle favorite status.
 
-        On first-time favorite:
-          1. Check if Word already exists by id (may have been cached)
-          2. Create Word record with available data
-          3. Create Favorite record
+        *word_id* here is the session-relative id (1-5), NOT a DB key.
+        When favoriting, the full word data is in *ext*.  We look up / create
+        the Word record by **name** (unique), then toggle the Favorite row
+        on the real DB primary key.
+
+        Returns the real DB word_id so the frontend can navigate correctly.
         """
-        # Word_id here is the session-relative id (1-5), not a DB primary key.
-        # We look up by a combination or create a new record.
-        # For simplicity, we use a transient approach: the frontend sends the
-        # full word data as ext when favoriting.
+        name = (ext or {}).get("name", "").strip()
+        if not name:
+            return {"is_favorited": False, "message": "缺少单词数据"}
+
+        # ── 1. Find or create Word record by name ──────────
+        word = db.query(Word).filter(Word.name == name).first()
+        if not word:
+            word = Word(
+                name=name,
+                kana=(ext or {}).get("kana", ""),
+                translation=(ext or {}).get("translation", ""),
+                description=(ext or {}).get("description"),
+                type=(ext or {}).get("type"),
+                example_sentences=(ext or {}).get("example_sentences"),
+                ext=ext,
+            )
+            db.add(word)
+            db.flush()
+
+        # ── 2. Toggle favorite on the real DB word id ──────
         fav = (
             db.query(Favorite)
             .filter(
-                Favorite.word_id == word_id,
+                Favorite.word_id == word.id,
                 Favorite.user_id == self.USER_ID,
             )
             .first()
         )
 
         if fav:
-            # Unfavorite
             db.delete(fav)
             db.commit()
-            return {"is_favorited": False, "message": "已取消收藏"}
+            return {"is_favorited": False, "message": "已取消收藏", "word_id": word.id}
         else:
-            # Favorite — ensure Word record exists
-            word = db.query(Word).filter(Word.id == word_id).first()
-            if not word:
-                # Ext contains the cached word data; create DB record
-                word = Word(
-                    id=word_id,
-                    name=(ext or {}).get("name", ""),
-                    kana=(ext or {}).get("kana", ""),
-                    translation=(ext or {}).get("translation", ""),
-                    description=(ext or {}).get("description"),
-                    type=(ext or {}).get("type"),
-                    example_sentences=(ext or {}).get("example_sentences"),
-                    ext=ext,
-                )
-                db.add(word)
-                db.flush()
-
             db.add(Favorite(word_id=word.id, user_id=self.USER_ID))
             db.commit()
-            return {"is_favorited": True, "message": "收藏成功"}
+            return {"is_favorited": True, "message": "收藏成功", "word_id": word.id}
 
     # ═══════════════════════════════════════════════════════
     #  Word detail (from DB, for favorited words)

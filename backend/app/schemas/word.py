@@ -31,6 +31,7 @@ class FavoriteToggleRequest(BaseModel):
 class FavoriteToggleResponse(BaseModel):
     is_favorited: bool
     message: str
+    word_id: Optional[int] = None
 
 
 class WordResponse(BaseModel):

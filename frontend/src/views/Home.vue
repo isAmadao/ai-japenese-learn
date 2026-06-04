@@ -12,9 +12,13 @@ onMounted(() => {
   store.loadRandomWords(5)
 })
 
-async function handleFavorite(word: any) {
+async function handleFavorite(wordId: number) {
+  // WordCard 只 emit 了 id，从 store 中找到完整词对象
+  const word = store.currentWords.find(w => w.id === wordId)
+  if (!word) return
+
   const isFav = await store.toggleWordFavorite(
-    word.id,
+    wordId,
     {
       name: word.name,
       kana: word.kana,
@@ -25,9 +29,9 @@ async function handleFavorite(word: any) {
     },
   )
   if (isFav) {
-    favoritedIds.value.add(word.id)
+    favoritedIds.value.add(wordId)
   } else {
-    favoritedIds.value.delete(word.id)
+    favoritedIds.value.delete(wordId)
   }
 }
 
