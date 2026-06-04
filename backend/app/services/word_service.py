@@ -6,7 +6,7 @@ Browser refresh reuses cached session words instead of generating new ones.
 
 import json
 import logging
-import uuid
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -172,9 +172,116 @@ class WordService:
             db.commit()
             return {"is_favorited": False, "message": "已取消收藏", "word_id": word.id}
         else:
-            db.add(Favorite(word_id=word.id, user_id=self.USER_ID))
+            db.add(Favorite(word_id=word.id, user_id=self.USER_ID, status="favorite"))
             db.commit()
             return {"is_favorited": True, "message": "收藏成功", "word_id": word.id}
+
+    # ═══════════════════════════════════════════════════════
+    #  Mark as learned (status machine: favorite → learned)
+    # ═══════════════════════════════════════════════════════
+
+    def mark_as_learned(self, db: Session, word_id: int) -> dict:
+        """Mark a favorited word as learned. One-way (never goes back)."""
+        fav = (
+            db.query(Favorite)
+            .filter(
+                Favorite.word_id == word_id,
+                Favorite.user_id == self.USER_ID,
+                Favorite.status == "favorite",
+            )
+            .first()
+        )
+        if not fav:
+            return {"success": False, "message": "单词未收藏或已学习"}
+        fav.status = "learned"
+        fav.learned_at = datetime.utcnow()
+        db.commit()
+        return {"success": True, "message": "已标记为已学习"}
+
+    # ═══════════════════════════════════════════════════════
+    #  Learned words (paginated, filterable by type)
+    # ═══════════════════════════════════════════════════════
+
+    def get_learned_words(
+        self, db: Session, type_filter: Optional[str] = None,
+        page: int = 1, page_size: int = 30,
+    ) -> dict:
+        """Get learned words, optionally filtered by type (N5-N1)."""
+        query = (
+            db.query(Favorite)
+            .filter(
+                Favorite.user_id == self.USER_ID,
+                Favorite.status == "learned",
+            )
+        )
+        if type_filter and type_filter in ("N5", "N4", "N3", "N2", "N1"):
+            query = query.join(Word).filter(Word.type == type_filter)
+
+        total = query.count()
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        favorites = (
+            query.order_by(Favorite.learned_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
+
+        words = [fav.word.to_dict() for fav in favorites if fav.word]
+        # Attach learned_at
+        for i, fav in enumerate(favorites):
+            if fav and i < len(words):
+                words[i]["learned_at"] = fav.learned_at.isoformat() if fav.learned_at else None
+
+        return {
+            "words": words,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        }
+
+    def get_learned_type_counts(self, db: Session) -> dict:
+        """Get count of learned words per type (N5-N1)."""
+        rows = (
+            db.query(Word.type, func.count(Favorite.id))
+            .join(Favorite, Word.id == Favorite.word_id)
+            .filter(
+                Favorite.user_id == self.USER_ID,
+                Favorite.status == "learned",
+            )
+            .group_by(Word.type)
+            .all()
+        )
+        counts = {t or "NONE": c for t, c in rows}
+        for level in ("N5", "N4", "N3", "N2", "N1"):
+            counts.setdefault(level, 0)
+        return counts
+
+    # ═══════════════════════════════════════════════════════
+    #  Favorites list (paginated, status = favorite)
+    # ═══════════════════════════════════════════════════════
+
+    def get_favorites_paginated(self, db: Session, page: int = 1, page_size: int = 30) -> dict:
+        query = (
+            db.query(Favorite)
+            .filter(
+                Favorite.user_id == self.USER_ID,
+                Favorite.status == "favorite",
+            )
+            .order_by(Favorite.created_at.desc())
+        )
+        total = query.count()
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        favorites = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        words = [fav.word.to_dict() for fav in favorites if fav.word]
+        return {
+            "words": words,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        }
 
     # ═══════════════════════════════════════════════════════
     #  Word detail (from DB, for favorited words)

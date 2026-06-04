@@ -1,7 +1,7 @@
 /** API client — communicates with the FastAPI backend */
 
 import axios from 'axios'
-import type { CachedWord, WordDetailResponse, Article, PaginatedResponse } from '@/types'
+import type { CachedWord, WordDetailResponse, Article, PaginatedResponse, LearnedTypeCounts } from '@/types'
 
 const http = axios.create({
   baseURL: '/api',
@@ -67,6 +67,32 @@ export async function generateArticle(wordIds: number[], level: string): Promise
 /** Get article detail */
 export async function fetchArticle(id: number): Promise<Article> {
   const { data } = await http.get(`/articles/${id}`)
+  return data
+}
+
+// --- Learned words ---
+
+/** Mark a favorited word as learned (favorite → learned) */
+export async function markAsLearned(wordId: number): Promise<{ success: boolean; message: string }> {
+  const { data } = await http.patch(`/favorites/${wordId}/learn`)
+  return data
+}
+
+/** Get learned words, optionally filtered by type */
+export async function fetchLearned(
+  type?: string,
+  page = 1,
+  pageSize = 30,
+): Promise<PaginatedResponse> {
+  const params: any = { page, page_size: pageSize }
+  if (type) params.type = type
+  const { data } = await http.get('/learned', { params })
+  return data
+}
+
+/** Get learned word counts per type */
+export async function fetchLearnedTypeCounts(): Promise<LearnedTypeCounts> {
+  const { data } = await http.get('/learned/types')
   return data
 }
 

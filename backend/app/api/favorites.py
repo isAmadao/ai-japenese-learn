@@ -1,6 +1,6 @@
-"""Favorites API endpoints — paginated list."""
+"""Favorites API endpoints — paginated list + mark as learned."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -16,6 +16,15 @@ def list_favorites(
     page_size: int = Query(30, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """Get paginated list of favorited words (5 rows × 6 cols = 30 per page)."""
+    """Get paginated list of favorited words (status = favorite)."""
     result = word_service.get_favorites_paginated(db, page=page, page_size=page_size)
     return FavoriteListResponse(**result)
+
+
+@router.patch("/{word_id}/learn")
+def mark_as_learned(word_id: int, db: Session = Depends(get_db)):
+    """Mark a favorited word as learned (status machine: favorite → learned)."""
+    result = word_service.mark_as_learned(db, word_id)
+    if not result["success"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result

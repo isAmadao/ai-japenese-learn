@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchFavorites, generateArticleStream } from '@/api'
+import { fetchFavorites, generateArticleStream, markAsLearned } from '@/api'
 import type { WordResponse } from '@/types'
 import WordCard from '@/components/WordCard.vue'
 
@@ -49,6 +49,14 @@ async function loadFavorites() {
 function goToPage(p: number) {
   page.value = p
   loadFavorites()
+}
+
+async function handleMarkLearned(wordId: number) {
+  try {
+    await markAsLearned(wordId)
+    // Remove from current page and re-fetch
+    loadFavorites()
+  } catch { /* silent */ }
 }
 
 function goToDetail(id: number) {
@@ -180,16 +188,24 @@ function cancelStreaming() {
 
     <!-- Word Grid: 6 columns -->
     <div v-else class="word-grid">
-      <WordCard
-        v-for="word in words"
-        :key="word.id"
-        :word="word"
-        :show-favorite="false"
-        :selectable="selecting"
-        :selected="selectedIds.has(word.id)"
-        @select="toggleSelect"
-        @click="goToDetail"
-      />
+      <div v-for="word in words" :key="word.id" class="grid-item">
+        <WordCard
+          :word="word"
+          :show-favorite="false"
+          :selectable="selecting"
+          :selected="selectedIds.has(word.id)"
+          @select="toggleSelect"
+          @click="goToDetail"
+        />
+        <button
+          v-if="!selecting"
+          class="btn-learned"
+          @click.stop="handleMarkLearned(word.id)"
+          title="标记为已学习"
+        >
+          ✅ 已学习
+        </button>
+      </div>
     </div>
 
     <!-- Pagination -->
@@ -317,6 +333,22 @@ function cancelStreaming() {
   .word-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-learned {
+  font-size: 0.7rem; padding: 3px 0; width: 100%;
+  border: 1px solid var(--success); border-radius: 6px;
+  background: white; color: var(--success); cursor: pointer;
+  transition: all 0.2s; font-weight: 500;
+}
+.btn-learned:hover {
+  background: var(--success); color: white;
 }
 
 .empty-state {

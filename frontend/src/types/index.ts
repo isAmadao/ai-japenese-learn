@@ -59,3 +59,12 @@ export interface PaginatedResponse {
   page_size: number
   total_pages: number
 }
+
+export interface LearnedTypeCounts {
+  N5: number
+  N4: number
+  N3: number
+  N2: number
+  N1: number
+  [key: string]: number
+}

@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.core.redis_client import redis_client
 from app.core.milvus_client import milvus_client
-from app.api import words, favorites, articles
+from app.api import words, favorites, articles, learned
 
 
 @asynccontextmanager
@@ -65,6 +65,7 @@ app.add_middleware(
 app.include_router(words.router)
 app.include_router(favorites.router)
 app.include_router(articles.router)
+app.include_router(learned.router)
 
 
 @app.get("/")
