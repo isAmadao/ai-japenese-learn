@@ -36,7 +36,13 @@ async function handleFavorite(wordId: number) {
 }
 
 function goToDetail(id: number) {
-  router.push(`/word/${id}`)
+  const word = store.currentWords.find(w => w.id === id)
+  if (!word) { router.push(`/word/${id}`); return }
+  router.push({
+    name: 'WordDetail',
+    params: { id: String(id) },
+    state: { cachedWord: word },
+  })
 }
 
 import { refreshSessionId } from '@/api'

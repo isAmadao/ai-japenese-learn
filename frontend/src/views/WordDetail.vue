@@ -9,9 +9,10 @@ const route = useRoute()
 const router = useRouter()
 
 const word = ref<WordDetailResponse | null>(null)
-const loading = ref(true)
+const loading = ref(false)
 const error = ref<string | null>(null)
 const favorited = ref(false)
+const isCachedWord = ref(false)
 
 onMounted(() => { loadWord() })
 watch(() => route.params.id, () => { loadWord() })
@@ -19,6 +20,32 @@ watch(() => route.params.id, () => { loadWord() })
 async function loadWord() {
   const id = Number(route.params.id)
   if (!id) return
+
+  // ── Check if we have cached word data from Home page ──
+  const cachedData = (history.state as any)?.cachedWord
+  if (cachedData && cachedData.name) {
+    word.value = {
+      id: cachedData.id,
+      name: cachedData.name,
+      kana: cachedData.kana,
+      translation: cachedData.translation,
+      description: cachedData.description || null,
+      type: cachedData.type || null,
+      example_sentences: cachedData.example_sentences || [],
+      ext: null,
+      created_at: null,
+      is_favorited: false,
+      favorited_at: null,
+      articles: [],
+    }
+    favorited.value = false
+    isCachedWord.value = true
+    loading.value = false
+    return
+  }
+
+  // ── Fallback: fetch from DB (favorited words) ──
+  isCachedWord.value = false
   loading.value = true
   error.value = null
   try {
@@ -36,7 +63,17 @@ async function loadWord() {
 async function handleFavorite() {
   if (!word.value) return
   try {
-    const result = await toggleFavorite(word.value.id)
+    const result = await toggleFavorite(
+      word.value.id,
+      isCachedWord.value ? {
+        name: word.value.name,
+        kana: word.value.kana,
+        translation: word.value.translation,
+        description: word.value.description,
+        type: word.value.type,
+        example_sentences: word.value.example_sentences,
+      } : undefined,
+    )
     favorited.value = result.is_favorited
   } catch { /* silent */ }
 }
@@ -77,6 +114,10 @@ function goToArticle(id: number) {
           <span v-if="word.type" class="type-badge">{{ word.type }}</span>
         </div>
         <p v-if="word.description" class="description">{{ word.description }}</p>
+
+        <div v-if="isCachedWord" class="cache-hint">
+          ⚡ 该单词尚未收藏，点击 ★ 收藏后永久保存
+        </div>
 
         <div class="sentences-section">
           <h3>📖 例句</h3>
@@ -142,6 +183,11 @@ function goToArticle(id: number) {
 .description {
   font-size: 0.9rem; color: var(--text-light); margin-bottom: 16px;
   padding-bottom: 16px; border-bottom: 1px solid var(--border);
+}
+.cache-hint {
+  font-size: 0.8rem; color: var(--warning); text-align: center;
+  padding: 8px; margin-bottom: 12px;
+  background: #fff8e1; border-radius: var(--radius-sm);
 }
 
 .sentences-section { margin-top: 16px; }
