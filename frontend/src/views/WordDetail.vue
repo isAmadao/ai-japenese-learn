@@ -3,10 +3,12 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchWordDetail, toggleFavorite } from '@/api'
 import { speakJapanese } from '@/utils/speech'
+import { useWordStore } from '@/stores/word'
 import type { WordDetailResponse } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
+const store = useWordStore()
 
 const word = ref<WordDetailResponse | null>(null)
 const loading = ref(false)
@@ -21,8 +23,9 @@ async function loadWord() {
   const id = Number(route.params.id)
   if (!id) return
 
-  // ── Check if we have cached word data from Home page ──
-  const cachedData = (history.state as any)?.cachedWord
+  // ── Check if navigating from Home (cached word, no DB hit) ──
+  const cachedData = store.clickedWord
+  store.clickedWord = null  // consume it
   if (cachedData && cachedData.name) {
     word.value = {
       id: cachedData.id,

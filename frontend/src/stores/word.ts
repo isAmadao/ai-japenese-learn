@@ -36,5 +36,8 @@ export const useWordStore = defineStore('word', () => {
     }
   }
 
-  return { currentWords, loading, error, loadRandomWords, toggleWordFavorite }
+  // Word detail page uses this when navigating from Home (cached word)
+  const clickedWord = ref<CachedWord | null>(null)
+
+  return { currentWords, loading, error, clickedWord, loadRandomWords, toggleWordFavorite }
 })
