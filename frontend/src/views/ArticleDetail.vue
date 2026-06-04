@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchArticle } from '@/api'
+import { speakJapanese } from '@/utils/speech'
 import type { Article } from '@/types'
 
 const route = useRoute()
@@ -35,12 +36,6 @@ async function loadArticle() {
   }
 }
 
-function speak(text: string) {
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'ja-JP'
-  utterance.rate = 0.8
-  window.speechSynthesis.speak(utterance)
-}
 </script>
 
 <template>
@@ -63,7 +58,7 @@ function speak(text: string) {
         <div class="meta">
           <span class="level-badge">{{ article.level }}</span>
           <span class="date">{{ article.created_at ? new Date(article.created_at).toLocaleDateString('zh-CN') : '' }}</span>
-          <button class="speak-btn" title="朗读全文" @click="speak(article.content_japanese)">🔊 朗读全文</button>
+          <button class="speak-btn" title="朗读全文" @click="speakJapanese(article.content_japanese)">🔊 朗读全文</button>
         </div>
       </div>
 

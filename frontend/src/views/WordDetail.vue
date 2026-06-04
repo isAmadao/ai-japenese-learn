@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchWordDetail, toggleFavorite } from '@/api'
+import { speakJapanese } from '@/utils/speech'
 import type { WordDetail as WordDetailType } from '@/types'
 
 const route = useRoute()
@@ -48,13 +49,6 @@ async function handleFavorite() {
   }
 }
 
-function speak(text: string) {
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'ja-JP'
-  utterance.rate = 0.8
-  window.speechSynthesis.speak(utterance)
-}
-
 function goToArticle(id: number) {
   router.push(`/article/${id}`)
 }
@@ -82,7 +76,7 @@ function goToArticle(id: number) {
             <p class="kana">{{ word.kana }}</p>
           </div>
           <div class="word-actions">
-            <button class="speak-btn" title="朗读" @click="speak(word.japanese)">🔊</button>
+            <button class="speak-btn" title="朗读" @click="speakJapanese(word.japanese)">🔊</button>
             <button
               class="fav-btn"
               :class="{ favorited }"
@@ -104,7 +98,7 @@ function goToArticle(id: number) {
             <div v-for="(sent, i) in word.example_sentences" :key="i" class="sentence-item">
               <div class="sentence-header">
                 <span class="sentence-num">#{{ i + 1 }}</span>
-                <button class="speak-btn" @click="speak(sent.japanese)">🔊</button>
+                <button class="speak-btn" @click="speakJapanese(sent.japanese)">🔊</button>
               </div>
               <p class="sent-jp">{{ sent.japanese }}</p>
               <p class="sent-cn">{{ sent.chinese }}</p>

@@ -20,12 +20,7 @@ const emit = defineEmits<{
   click: [id: number]
 }>()
 
-function speak(text: string) {
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'ja-JP'
-  utterance.rate = 0.8
-  window.speechSynthesis.speak(utterance)
-}
+import { speakJapanese } from '@/utils/speech'
 </script>
 
 <template>
@@ -44,7 +39,7 @@ function speak(text: string) {
         <span class="kana">{{ word.kana }}</span>
       </div>
       <div class="card-actions">
-        <button class="speak-btn" title="朗读" @click.stop="speak(word.japanese)">🔊</button>
+        <button class="speak-btn" title="朗读" @click.stop="speakJapanese(word.japanese)">🔊</button>
         <button
           v-if="showFavorite"
           class="fav-btn"
