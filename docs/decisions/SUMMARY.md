@@ -104,6 +104,12 @@
 - **方案**: 按 word name 去重 + 自动递增主键
 - **效果**: 同一单词多次收藏复用同一记录
 
+### 🥉 学习状态机 — favorite → learned
+- **问题**: 无法区分"已收藏"和"已学习"两个阶段
+- **方案**: Favorite 表加 status 字段 (favorite|learned) + learned_at 时间戳
+- **效果**: 收藏页只显示待学习单词，已学习单词按 type 分页展示
+- **学习点**: 状态机加字段比新建表更简单，ORM 层面两状态共享同一关系
+
 ## 技术债务
 
 ### 环境相关
@@ -148,5 +154,8 @@
 ├── 23:35  🔊 feat: install-japanese-tts 技能生效验证
 ├── 23:40  🐛 fix: Milvus Lite fallback 标记未设置
 ├── 23:45  🤖 feat: MeCab 假名校验（fugashi + unidic）
-└── 23:55  📝 doc: 更新开发日志（本次会话）
+├── 23:55  📝 doc: 更新开发日志
+└── 00:15  📝 feat: 学习状态机（favorite → learned）+ 已学习页面
+          🐛 fix: 缓存词/收藏词详情 ID 冲突（Pinia store）
+          🐛 fix: 换一批按钮加载禁用 + "更换中..."
 ```

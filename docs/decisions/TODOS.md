@@ -27,7 +27,8 @@
 | 低 | MCP (Model Context Protocol) 集成 | 架构 | 预留接口，让 Claude Desktop 等 MCP 客户端能连接本项目 |
 | 低 | 用户认证系统 | 功能 | 目前用 `default` 用户，后续可接入 JWT / OAuth |
 | 低 | SRS 间隔重复记忆 | 功能 | 基于遗忘曲线的单词复习系统 |
-| 低 | 单词学习进度追踪 | 功能 | 已学/待学/掌握单词统计 |
+| 中 | 学习状态机扩展（如"复习中"等状态） | 功能 | 目前只有 favorite→learned 两个状态，后续可扩展更多学习阶段 |
+| 低 | 单词学习进度追踪 | 功能 | 已学/待学/掌握单词统计（已学习页面已实现基础版） |
 | 低 | Docker Compose 部署 | DevOps | 统一打包后端 + Redis + 前端 |
 
 ## 🔵 已解决（历史关键问题）
@@ -46,6 +47,8 @@
 | 换一批/F5 混淆 | 换一批轮转 session_id，F5 读现有 ID | `api/index.ts`, `Home.vue` |
 | LLM 假名读音错误 | fugashi + unidic 词典校验 | `japanese_util.py` |
 | Milvus Lite fallback 标记未设置 | `_setup_fallback` 漏了 `_using_fallback = True` | `milvus_client.py` |
+| 缓存词/收藏词详情 ID 冲突 | 用 Pinia store 传缓存词数据，不查 DB | `WordDetail.vue`, `stores/word.ts` |
+| 换一批按钮双击 | 加载时禁用 + 显示"更换中..." | `Home.vue` |
 
 ## 标签索引
 

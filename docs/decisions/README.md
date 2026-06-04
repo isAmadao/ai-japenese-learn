@@ -15,6 +15,7 @@
 | 007 | [SSE 流式输出](007-streaming-sse.md) | ✅ 已采纳 | 2026-06-04 |
 | 008 | [容器化方案](008-containerization.md) | 🔄 待决策 | 2026-06-04 |
 | 009 | [MeCab 假名校验](009-kana-verification.md) | ✅ 已采纳 | 2026-06-04 |
+| 010 | [学习状态机](010-learning-status-machine.md) | ✅ 已采纳 | 2026-06-05 |
 
 ## 遗留问题
 
