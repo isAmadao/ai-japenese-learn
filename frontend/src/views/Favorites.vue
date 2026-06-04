@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchFavorites, generateArticle } from '@/api'
+import { fetchFavorites, generateArticleStream } from '@/api'
 import type { Word } from '@/types'
 import WordCard from '@/components/WordCard.vue'
 
@@ -23,6 +23,8 @@ const showLevelModal = ref(false)
 const articleLevel = ref('')
 const generating = ref(false)
 const genError = ref<string | null>(null)
+const streamingContent = ref('')       // accumulated content during streaming
+const showStreaming = ref(false)       // show streaming overlay
 
 onMounted(() => {
   loadFavorites()
@@ -55,7 +57,7 @@ function goToDetail(id: number) {
   }
 }
 
-// -- Article generation flow --
+// -- Article generation flow (SSE streaming) --
 
 function startSelecting() {
   selecting.value = true
@@ -81,6 +83,7 @@ function confirmSelection() {
   if (selectedIds.value.size === 0) return
   showLevelModal.value = true
   articleLevel.value = ''
+  genError.value = null
 }
 
 function selectLevel(level: string) {
@@ -89,18 +92,40 @@ function selectLevel(level: string) {
 
 async function confirmGenerate() {
   if (!articleLevel.value) return
+
+  // Switch from level selection to streaming view
+  showLevelModal.value = false
+  showStreaming.value = true
   generating.value = true
   genError.value = null
-  try {
-    const article = await generateArticle([...selectedIds.value], articleLevel.value)
-    selecting.value = false
-    showLevelModal.value = false
-    router.push(`/article/${article.id}`)
-  } catch (e: any) {
-    genError.value = e?.response?.data?.detail || '生成文章失败'
-  } finally {
-    generating.value = false
-  }
+  streamingContent.value = ''
+
+  await generateArticleStream(
+    [...selectedIds.value],
+    articleLevel.value,
+    // onToken — append each chunk
+    (text) => {
+      streamingContent.value += text
+    },
+    // onDone — navigate to article
+    (articleId) => {
+      generating.value = false
+      showStreaming.value = false
+      selecting.value = false
+      selectedIds.value = new Set()
+      router.push(`/article/${articleId}`)
+    },
+    // onError
+    (message) => {
+      generating.value = false
+      genError.value = message
+    },
+  )
+}
+
+function cancelStreaming() {
+  showStreaming.value = false
+  generating.value = false
 }
 </script>
 
@@ -181,7 +206,7 @@ async function confirmGenerate() {
       <button :disabled="page >= totalPages" @click="goToPage(page + 1)">下一页</button>
     </div>
 
-    <!-- Level Selection Modal -->
+    <!-- ============ MODAL: Level Selection ============ -->
     <div v-if="showLevelModal" class="modal-overlay" @click.self="showLevelModal = false">
       <div class="modal">
         <h2>选择文章级别</h2>
@@ -203,18 +228,51 @@ async function confirmGenerate() {
           </button>
         </div>
 
-        <div v-if="genError" class="error-msg" style="padding: 8px; font-size: 0.9rem">
-          {{ genError }}
+        <div class="modal-actions">
+          <button class="btn btn-outline" @click="showLevelModal = false">取消</button>
+          <button
+            class="btn btn-primary"
+            :disabled="!articleLevel"
+            @click="confirmGenerate"
+          >
+            确认生成
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ MODAL: Streaming Generation ============ -->
+    <div v-if="showStreaming" class="modal-overlay" @click.self="cancelStreaming">
+      <div class="modal streaming-modal">
+        <div class="streaming-header">
+          <h2>
+            {{ generating ? '🔄 正在生成文章...' : '✅ 生成完成' }}
+          </h2>
+          <span v-if="generating" class="streaming-dot"></span>
+        </div>
+
+        <!-- Generation error -->
+        <div v-if="genError" class="gen-error">
+          ⚠ {{ genError }}
+          <button class="btn btn-primary btn-sm" style="margin-top: 8px" @click="confirmGenerate">
+            重试
+          </button>
+        </div>
+
+        <!-- Streaming content display -->
+        <div v-else class="streaming-content" ref="streamBox">
+          <pre class="stream-text">{{ streamingContent }}<span v-if="generating" class="cursor">▌</span></pre>
+          <p v-if="!generating && streamingContent" class="stream-done-msg">
+            文章已生成，即将跳转...
+          </p>
+          <p v-if="!streamingContent && generating" class="stream-waiting">
+            正在请求 AI ...
+          </p>
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-outline" @click="showLevelModal = false" :disabled="generating">取消</button>
-          <button
-            class="btn btn-primary"
-            :disabled="!articleLevel || generating"
-            @click="confirmGenerate"
-          >
-            {{ generating ? '生成中...' : '确认生成' }}
+          <button class="btn btn-outline" @click="cancelStreaming" :disabled="generating">
+            取消
           </button>
         </div>
       </div>
@@ -270,5 +328,82 @@ async function confirmGenerate() {
 .hint {
   font-size: 0.85rem;
   margin-top: 8px;
+}
+
+/* ===== Streaming Modal ===== */
+.streaming-modal {
+  min-width: 600px;
+  max-width: 700px;
+}
+
+.streaming-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.streaming-header h2 {
+  margin-bottom: 0;
+}
+
+.streaming-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--success);
+  border-radius: 50%;
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.streaming-content {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: 'Noto Sans SC', 'Hiragino Sans', 'Yu Gothic', monospace;
+  line-height: 1.8;
+  min-height: 150px;
+}
+
+.stream-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.95rem;
+  margin: 0;
+  font-family: inherit;
+}
+
+.cursor {
+  animation: blink 0.8s infinite;
+  color: var(--success);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.stream-done-msg {
+  color: var(--success);
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+.stream-waiting {
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.gen-error {
+  color: var(--primary);
+  padding: 16px;
+  text-align: center;
 }
 </style>

@@ -1,55 +1,75 @@
 """Redis client for caching and session management.
 
-Usage (future):
-    from app.core.redis_client import redis_client
-    await redis_client.set("key", "value")
-    val = await redis_client.get("key")
+Gracefully handles missing redis.asyncio (fallback to sync client).
 """
 
 import json
+import logging
 from typing import Any, Optional
 
-import redis.asyncio as aioredis
+logger = logging.getLogger(__name__)
 
-from app.core.config import settings
+# Try async redis first; fall back gracefully
+try:
+    import redis.asyncio as aioredis
+    HAS_ASYNC_REDIS = True
+except ImportError:
+    aioredis = None
+    HAS_ASYNC_REDIS = False
+    logger.warning("redis.asyncio not available — using sync redis client fallback")
 
 
 class RedisClient:
     """Thin wrapper around redis for caching & rate-limiting."""
 
     def __init__(self):
-        self._client: Optional[aioredis.Redis] = None
+        self._async_client: Optional[aioredis.Redis] = None if HAS_ASYNC_REDIS else None
 
     @property
-    def client(self) -> aioredis.Redis:
-        if self._client is None:
+    def client(self):
+        if self._async_client is None:
             raise RuntimeError("Redis not connected. Call connect() first.")
-        return self._client
+        return self._async_client
 
     async def connect(self):
-        self._client = aioredis.Redis(
+        if not HAS_ASYNC_REDIS:
+            logger.warning("redis.asyncio not installed — skipping Redis connection")
+            return
+        from app.core.config import settings
+        self._async_client = aioredis.Redis(
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
             db=settings.REDIS_DB,
             decode_responses=True,
         )
-        await self._client.ping()
+        try:
+            await self._async_client.ping()
+            logger.info("Redis connected")
+        except Exception as e:
+            logger.warning(f"Redis connection failed: {e}")
+            self._async_client = None
 
     async def disconnect(self):
-        if self._client:
-            await self._client.close()
-            self._client = None
+        if self._async_client:
+            await self._async_client.close()
+            self._async_client = None
 
     async def get(self, key: str) -> Optional[str]:
-        return await self.client.get(key)
+        if not self._async_client:
+            return None
+        return await self._async_client.get(key)
 
     async def set(self, key: str, value: Any, ttl: int = 300):
+        if not self._async_client:
+            return
         if not isinstance(value, str):
             value = json.dumps(value, ensure_ascii=False)
-        await self.client.setex(key, ttl, value)
+        await self._async_client.setex(key, ttl, value)
 
     async def delete(self, key: str):
-        await self.client.delete(key)
+        if not self._async_client:
+            return
+        await self._async_client.delete(key)
 
 
 redis_client = RedisClient()

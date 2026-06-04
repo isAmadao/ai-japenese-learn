@@ -91,6 +91,59 @@ class LLMService:
         except (json.JSONDecodeError, KeyError) as e:
             raise RuntimeError(f"Failed to parse LLM response: {e}\nResponse: {response.content[:500]}")
 
+    def generate_article_stream(self, words: list[dict], level: str):
+        """Stream article generation token by token (generator).
+
+        Yields raw text chunks as they arrive from the LLM.
+        The full accumulated text can be parsed as JSON at the end.
+        """
+        word_lines = "\n".join(
+            f"- {w['japanese']}（{w.get('kana', '')}）: {w.get('chinese_meaning', '')}"
+            for w in words
+        )
+
+        level_descriptions = {
+            "N5": "使用最简单的句型和基础词汇，每句不超过10个词",
+            "N4": "使用基本句型和常用词汇，句子结构简单清晰",
+            "N3": "使用中等难度句型，适当使用连词使文章连贯",
+            "N2": "使用较复杂的句型和表达，文章结构完整",
+            "N1": "使用高级表达和复杂句型，接近母语者水平",
+        }
+        level_desc = level_descriptions.get(level, "使用中等难度句型")
+
+        prompt = f"""你是一位专业的日语教师。请使用以下日语单词创作一篇短文，用于教学。
+
+使用的单词：
+{word_lines}
+
+级别要求：{level} - {level_desc}
+
+请返回JSON格式：
+{{{{
+    "title": "文章标题（日语）",
+    "content_japanese": "日语正文（请自然融入所有指定单词，每个单词至少使用一次）",
+    "content_chinese": "中文翻译（逐段对应日语正文）"
+}}}}
+
+要求：
+1. 短文长度控制在200-400字（日语）
+2. 确保所有给定单词都在文章中出现
+3. 文章内容连贯、自然、有意义
+4. 中文翻译准确，保持教学用途
+
+请直接返回JSON（不要使用markdown代码块标记）。
+"""
+
+        messages = [
+            SystemMessage(content="你是一位专业的日语教师，擅长生成教学用的日语短文。请始终用JSON格式回复。"),
+            HumanMessage(content=prompt),
+        ]
+
+        for chunk in self.llm.stream(messages):
+            content = chunk.content
+            if content:
+                yield content
+
     def generate_article(self, words: list[dict], level: str) -> dict:
         """Generate a short essay using given vocabulary at a specified JLPT level.
 
