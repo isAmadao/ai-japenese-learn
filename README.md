@@ -84,12 +84,32 @@ npm run dev
 
 ## 技术栈
 
-- **后端**: Python 3.10+, FastAPI, SQLAlchemy, LangChain, Qwen API
+- **后端**: Python 3.12, FastAPI, SQLAlchemy, LangChain, Qwen API
 - **数据库**: SQLite (开发) / MySQL (生产)
-- **缓存**: Redis (预留)
-- **向量数据库**: Milvus (预留)
+- **缓存**: Redis (LLM 结果缓存)
+- **向量数据库**: Milvus Lite (内嵌, 本地文件)
 - **前端**: Vue 3, TypeScript, Vite, Pinia, Vue Router
-- **TTS**: Web Speech API (浏览器端日语朗读)
+- **TTS**: Web Speech API + 日语语音包
+
+## 项目技能
+
+### `/install-japanese-tts`
+
+安装 Windows 日语 TTS 语音包，解决浏览器用中文发音读日语的问题。
+
+```bash
+# 方式一：通过 Claude Code 技能
+/install-japanese-tts
+
+# 方式二：直接运行脚本
+powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-tts.ps1
+```
+
+安装后需重启浏览器。验证方法：
+```javascript
+// 浏览器控制台
+speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja'))
+```
 
 ## 后续扩展
 
