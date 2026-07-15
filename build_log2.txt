@@ -1,0 +1,45 @@
+ Image ai-japenese-learn-app Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 543B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.49kB 0.0s done
+#2 DONE 0.3s
+
+#3 [internal] load metadata for docker.m.daocloud.io/library/python:3.13-slim
+#3 ...
+
+#4 [internal] load metadata for docker.m.daocloud.io/library/node:20-alpine
+#4 ...
+
+#3 [internal] load metadata for docker.m.daocloud.io/library/python:3.13-slim
+#3 ERROR: failed to do request: Head "https://docker.m.daocloud.io/v2/library/python/manifests/3.13-slim": net/http: TLS handshake timeout
+
+#4 [internal] load metadata for docker.m.daocloud.io/library/node:20-alpine
+#4 CANCELED
+------
+ > [internal] load metadata for docker.m.daocloud.io/library/python:3.13-slim:
+------
+Dockerfile:20
+
+--------------------
+
+  18 |     
+
+  19 |     # ── Stage 2: Python runtime ─────────────────────────────────
+
+  20 | >>> FROM docker.m.daocloud.io/library/python:3.13-slim
+
+  21 |     
+
+  22 |     WORKDIR /app
+
+--------------------
+
+failed to solve: docker.m.daocloud.io/library/python:3.13-slim: failed to resolve source metadata for docker.m.daocloud.io/library/python:3.13-slim: failed to do request: Head "https://docker.m.daocloud.io/v2/library/python/manifests/3.13-slim": net/http: TLS handshake timeout
+
+
+
+View build details: docker-desktop://dashboard/build/default/default/2mgyxnyip45i5t8bcmloehk4e
+

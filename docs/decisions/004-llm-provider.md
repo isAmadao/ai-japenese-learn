@@ -40,11 +40,11 @@ LLM_MODEL=qwen-plus
 
 - ✅ 通过标准 OpenAI 接口调用，切换零成本
 - ✅ 已提供 API Key，开箱即用
-- ⚠️ Embedding API（text-embedding-v3）不可用，已实现确定性哈希向量 fallback
+- ⚠️ Embedding API（text-embedding-v3）曾因 langchain 路由问题超时，已修复为 httpx 直连
 
 ## 遗留问题
 
-- DashScope 的文本嵌入模型需要独立 endpoint，目前通过 hash 向量降级
+- ✅ 已修复: Embedding 改用 httpx 直接调用 OpenAI 兼容端点 `/v1/embeddings`，text-embedding-v3 正常可用
 
 ## 关联
 

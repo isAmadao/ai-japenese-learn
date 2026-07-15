@@ -25,6 +25,7 @@ class Article(Base):
     content_japanese = Column(Text, nullable=False, comment="日语正文")
     content_chinese = Column(Text, nullable=False, comment="中文翻译")
     level = Column(String(10), nullable=False, comment="级别 N5-N1")
+    image_url = Column(String(500), nullable=True, comment="Pexels 配图 URL")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     words = relationship("Word", secondary=article_words, lazy="selectin")
@@ -36,6 +37,7 @@ class Article(Base):
             "content_japanese": self.content_japanese,
             "content_chinese": self.content_chinese,
             "level": self.level,
+            "image_url": self.image_url,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "words": [w.to_dict() for w in self.words] if self.words else [],
         }

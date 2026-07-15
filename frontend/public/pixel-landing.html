@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⭐ ピクセル★スター - Pixel Star</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Zen+Maru+Gothic:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================
+       CSS VARIABLES & RESET
+       ============================================ */
+    :root {
+      /* 🌿 草木系 */
+      --grass: #7CC850;
+      --grass-light: #A8E070;
+      --grass-dark: #5A9E38;
+      --leaf: #A8D878;
+      --yellow-green: #C8E080;
+
+      /* 🌾 星露谷暖色调 */
+      --warm-brown: #8B6B4A;
+      --warm-brown-light: #C4A87A;
+      --warm-brown-dark: #5C3E2A;
+      --golden: #F0C848;
+      --golden-light: #F8E080;
+      --warm-orange: #E89840;
+      --sky-blue: #80C8E8;
+      --sky-warm: #F8D8B0;
+      --cream: #FFF8E8;
+
+      /* 🎀 保留一点粉色点缀 */
+      --pink: #F8A0B8;
+      --pink-light: #FFC0D0;
+      --pink-dark: #D07088;
+
+      --bg-sky-top: #5090C0;
+      --bg-sky-bottom: #E8C898;
+      --bg-hill-dark: #4A8A38;
+      --bg-hill-mid: #5EA848;
+      --bg-hill-light: #7CC850;
+
+      --text-primary: #3A2A1A;
+      --text-secondary: #6B5A4A;
+      --text-light: #FFF8E8;
+      --pixel-border: #5C3E2A;
+
+      --wood-light: #D4B88A;
+      --wood-mid: #B89868;
+      --wood-dark: #7A5C3A;
+
+      --pixel-size: 4px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg-sky-top);
+      font-family: 'Zen Maru Gothic', sans-serif;
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='28' viewBox='0 0 24 28'%3E%3Crect x='4' y='0' width='16' height='4' fill='%237CC850'/%3E%3Crect x='8' y='4' width='8' height='4' fill='%237CC850'/%3E%3Crect x='0' y='8' width='24' height='16' fill='%237CC850'/%3E%3Crect x='4' y='12' width='4' height='4' fill='%23FFF8E8'/%3E%3Crect x='16' y='12' width='4' height='4' fill='%23FFF8E8'/%3E%3Crect x='8' y='20' width='4' height='4' fill='%23FFF8E8'/%3E%3Crect x='12' y='20' width='4' height='4' fill='%23FFF8E8'/%3E%3C/svg%3E") 12 4, auto;
+    }
+
+    /* ============================================
+       SKY BACKGROUND
+       ============================================ */
+    #sky-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+      image-rendering: pixelated;
+      pointer-events: none;
+    }
+
+    /* ============================================
+       HILLS & GROUND
+       ============================================ */
+    .hill-layer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 1;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .hill-layer canvas {
+      display: block;
+      width: 100%;
+      image-rendering: pixelated;
+    }
+
+    .hill-back { height: 200px; }
+    .hill-mid  { height: 160px; bottom: 30px; z-index: 2; }
+    .hill-front { height: 120px; bottom: 0; z-index: 3; }
+
+    /* ============================================
+       PIXEL TREE
+       ============================================ */
+    .tree {
+      position: fixed;
+      z-index: 2;
+      font-size: 48px;
+      pointer-events: none;
+      image-rendering: pixelated;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+    }
+    .tree-1 { bottom: 160px; left: 2%; font-size: 56px; }
+    .tree-2 { bottom: 140px; right: 5%; font-size: 64px; }
+    .tree-3 { bottom: 170px; left: 18%; font-size: 40px; }
+
+    /* ============================================
+       GRASS & CROPS
+       ============================================ */
+    .grass-tuft {
+      position: fixed;
+      z-index: 3;
+      font-size: 20px;
+      opacity: 0.8;
+      pointer-events: none;
+      animation: grass-sway 3s ease-in-out infinite;
+      image-rendering: pixelated;
+      bottom: 50px;
+    }
+    .grass-tuft:nth-child(10) { left: 3%; animation-delay: 0s; }
+    .grass-tuft:nth-child(11) { left: 10%; animation-delay: 0.4s; font-size: 16px; }
+    .grass-tuft:nth-child(12) { left: 18%; animation-delay: 0.8s; font-size: 22px; }
+    .grass-tuft:nth-child(13) { left: 28%; animation-delay: 0.2s; }
+    .grass-tuft:nth-child(14) { left: 40%; animation-delay: 1s; font-size: 18px; }
+    .grass-tuft:nth-child(15) { left: 52%; animation-delay: 0.6s; font-size: 24px; }
+    .grass-tuft:nth-child(16) { left: 63%; animation-delay: 1.2s; }
+    .grass-tuft:nth-child(17) { left: 75%; animation-delay: 0.3s; font-size: 18px; }
+    .grass-tuft:nth-child(18) { left: 85%; animation-delay: 0.9s; font-size: 22px; }
+    .grass-tuft:nth-child(19) { left: 93%; animation-delay: 0.5s; }
+
+    @keyframes grass-sway {
+      0%, 100% { transform: rotate(-2deg); }
+      50% { transform: rotate(3deg); }
+    }
+
+    /* 🌾 农作物点缀 */
+    .crop {
+      position: fixed;
+      z-index: 3;
+      font-size: 16px;
+      opacity: 0.7;
+      pointer-events: none;
+      animation: crop-wiggle 4s ease-in-out infinite;
+      image-rendering: pixelated;
+      bottom: 65px;
+    }
+    .crop:nth-child(20) { left: 14%; font-size: 18px; animation-delay: 0s; }
+    .crop:nth-child(21) { left: 32%; font-size: 14px; animation-delay: 1.2s; }
+    .crop:nth-child(22) { left: 48%; font-size: 20px; animation-delay: 0.6s; }
+    .crop:nth-child(23) { left: 70%; font-size: 16px; animation-delay: 2s; }
+    .crop:nth-child(24) { left: 88%; font-size: 14px; animation-delay: 1.5s; }
+
+    @keyframes crop-wiggle {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-3deg); }
+      75% { transform: rotate(3deg); }
+    }
+
+    /* ============================================
+       FLOATING PETALS
+       ============================================ */
+    .petal {
+      position: fixed;
+      z-index: 1;
+      pointer-events: none;
+      font-size: 12px;
+      opacity: 0.35;
+      animation: petal-fall linear infinite;
+      image-rendering: pixelated;
+    }
+    .petal:nth-child(25) { left: 5%; animation-duration: 14s; animation-delay: 0s; }
+    .petal:nth-child(26) { left: 20%; animation-duration: 17s; animation-delay: -3s; }
+    .petal:nth-child(27) { left: 38%; animation-duration: 12s; animation-delay: -7s; }
+    .petal:nth-child(28) { left: 55%; animation-duration: 16s; animation-delay: -2s; }
+    .petal:nth-child(29) { left: 72%; animation-duration: 13s; animation-delay: -5s; }
+    .petal:nth-child(30) { left: 88%; animation-duration: 15s; animation-delay: -9s; }
+
+    @keyframes petal-fall {
+      0% { transform: translateY(-30px) rotate(0deg) translateX(0); opacity: 0; }
+      10% { opacity: 0.4; }
+      50% { transform: translateY(50vh) rotate(180deg) translateX(30px); opacity: 0.3; }
+      100% { transform: translateY(105vh) rotate(360deg) translateX(-10px); opacity: 0; }
+    }
+
+    /* ============================================
+       MAIN CONTENT
+       ============================================ */
+    .hero {
+      position: relative;
+      z-index: 4;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ============================================
+       STARDEW-INSPIRED WOODEN SIGN
+       ============================================ */
+    .sign-board {
+      background: var(--wood-mid);
+      border: 4px solid var(--wood-dark);
+      padding: 2.5rem 3rem 2rem;
+      position: relative;
+      box-shadow:
+        inset -4px -4px 0 var(--wood-dark),
+        inset 4px 4px 0 var(--wood-light),
+        0 6px 0 rgba(0,0,0,0.15);
+      max-width: 600px;
+      width: 90%;
+      margin-bottom: 1.5rem;
+    }
+
+    .sign-board::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--golden), var(--grass-light), var(--golden));
+    }
+
+    /* 木牌上的钉子 */
+    .sign-nail {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: var(--warm-brown-dark);
+      border-radius: 50%;
+      top: 8px;
+      box-shadow: inset 1px 1px 0 rgba(255,255,255,0.2);
+    }
+    .sign-nail:nth-child(1) { left: 12px; }
+    .sign-nail:nth-child(2) { right: 12px; }
+
+    /* ============================================
+       PIXEL LOGO
+       ============================================ */
+    .logo-wrapper {
+      margin-bottom: 0.5rem;
+      position: relative;
+    }
+
+    .pixel-logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(1rem, 4.5vw, 2.2rem);
+      color: var(--cream);
+      text-shadow:
+        3px 3px 0 var(--warm-brown-dark),
+        6px 6px 0 rgba(0,0,0,0.2);
+      letter-spacing: 3px;
+      line-height: 1.6;
+      animation: logo-bounce 2s ease-in-out infinite;
+      position: relative;
+      image-rendering: pixelated;
+    }
+
+    .pixel-logo .sub {
+      display: block;
+      font-size: clamp(0.45rem, 2vw, 0.8rem);
+      color: var(--golden-light);
+      text-shadow: 2px 2px 0 var(--warm-brown-dark);
+      margin-top: 0.5rem;
+      letter-spacing: 5px;
+    }
+
+    @keyframes logo-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    /* ============================================
+       STARDEW MASCOT - STARDEW VALLEY STYLE
+       ============================================ */
+    .mascot-area {
+      position: relative;
+      width: 160px;
+      height: 120px;
+      margin: 1.5rem auto 1rem;
+      image-rendering: pixelated;
+    }
+
+    .mascot {
+      font-size: 72px;
+      line-height: 1;
+      display: block;
+      animation: mascot-bounce 1.4s ease-in-out infinite;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.15));
+      transition: transform 0.15s ease;
+      position: relative;
+    }
+
+    .mascot-flower {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 20px;
+      animation: flower-wobble 2.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes flower-wobble {
+      0%, 100% { transform: translateX(-50%) rotate(-5deg); }
+      50% { transform: translateX(-50%) rotate(5deg); }
+    }
+
+    @keyframes mascot-bounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-6px) scale(1.02); }
+    }
+
+    /* ============================================
+       STARDEW HEARTS / STARS DECORATION
+       ============================================ */
+    .deco-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 0.3rem 0 1.2rem;
+      font-size: 16px;
+      animation: deco-float 3s ease-in-out infinite;
+      image-rendering: pixelated;
+    }
+    .deco-row span:nth-child(2) { animation-delay: 0.4s; }
+    .deco-row span:nth-child(3) { animation-delay: 0.8s; }
+    .deco-row span:nth-child(4) { animation-delay: 0.2s; }
+    .deco-row span:nth-child(5) { animation-delay: 0.6s; }
+
+    @keyframes deco-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    /* ============================================
+       TAGLINE
+       ============================================ */
+    .tagline {
+      font-size: clamp(0.75rem, 2vw, 1rem);
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+      line-height: 2;
+      max-width: 460px;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    }
+
+    .tagline-sub {
+      font-size: 0.75em;
+      opacity: 0.7;
+      font-family: 'Press Start 2P', monospace;
+      letter-spacing: 2px;
+    }
+
+    /* ============================================
+       STARDEW WOODEN BUTTONS
+       ============================================ */
+    .pixel-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(0.45rem, 1.8vw, 0.65rem);
+      color: var(--cream);
+      background: var(--grass);
+      border: none;
+      padding: 0.9rem 1.8rem;
+      margin: 0.4rem;
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='28' viewBox='0 0 24 28'%3E%3Crect x='4' y='0' width='16' height='4' fill='%23F0C848'/%3E%3Crect x='8' y='4' width='8' height='4' fill='%23F0C848'/%3E%3Crect x='0' y='8' width='24' height='16' fill='%23F0C848'/%3E%3Crect x='4' y='12' width='4' height='4' fill='%23FFF8E8'/%3E%3Crect x='16' y='12' width='4' height='4' fill='%23FFF8E8'/%3E%3Crect x='8' y='20' width='4' height='4' fill='%23FFF8E8'/%3E%3Crect x='12' y='20' width='4' height='4' fill='%23FFF8E8'/%3E%3C/svg%3E") 12 4, pointer;
+      position: relative;
+      box-shadow:
+        inset -4px -4px 0 var(--grass-dark),
+        inset 4px 4px 0 var(--grass-light),
+        0 4px 0 var(--grass-dark);
+      transition: all 0.05s step-start;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      image-rendering: pixelated;
+    }
+
+    .pixel-btn:hover {
+      transform: translateY(2px);
+      box-shadow:
+        inset -4px -4px 0 var(--grass-dark),
+        inset 4px 4px 0 var(--grass-light),
+        0 2px 0 var(--grass-dark);
+    }
+
+    .pixel-btn:active {
+      transform: translateY(4px);
+      box-shadow:
+        inset -4px -4px 0 var(--grass-dark),
+        inset 4px 4px 0 var(--grass-light);
+    }
+
+    .pixel-btn.secondary {
+      background: var(--golden);
+      color: var(--text-primary);
+      box-shadow:
+        inset -4px -4px 0 #C8A030,
+        inset 4px 4px 0 var(--golden-light),
+        0 4px 0 #C8A030;
+    }
+
+    .pixel-btn.secondary:hover {
+      box-shadow:
+        inset -4px -4px 0 #C8A030,
+        inset 4px 4px 0 var(--golden-light),
+        0 2px 0 #C8A030;
+    }
+
+    /* ============================================
+       STARDEW WOODEN CARDS
+       ============================================ */
+    .features {
+      position: relative;
+      z-index: 4;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.2rem;
+      max-width: 800px;
+      margin: 1rem auto;
+      padding: 0 2rem 3rem;
+    }
+
+    .feature-card {
+      background: var(--wood-mid);
+      border: 4px solid var(--wood-dark);
+      padding: 1.8rem 1.2rem;
+      text-align: center;
+      transition: transform 0.15s step-start;
+      box-shadow:
+        inset -4px -4px 0 var(--wood-dark),
+        inset 4px 4px 0 var(--wood-light),
+        0 4px 0 rgba(0,0,0,0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--golden), var(--grass-light), var(--pink));
+    }
+
+    .feature-card:hover {
+      transform: translateY(-3px);
+    }
+
+    .feature-icon {
+      font-size: 34px;
+      display: block;
+      margin-bottom: 0.8rem;
+      image-rendering: pixelated;
+    }
+
+    .feature-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.5rem;
+      color: var(--cream);
+      text-shadow: 1px 1px 0 var(--warm-brown-dark);
+      margin-bottom: 0.6rem;
+      letter-spacing: 1px;
+      word-break: keep-all;
+    }
+
+    .feature-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      font-weight: 400;
+    }
+
+    /* ============================================
+       SEPARATOR
+       ============================================ */
+    .pixel-separator {
+      position: relative;
+      z-index: 4;
+      text-align: center;
+      font-size: 14px;
+      letter-spacing: 6px;
+      color: var(--warm-brown);
+      margin: 0.5rem 0;
+      image-rendering: pixelated;
+    }
+
+    /* ============================================
+       SCROLL INDICATOR
+       ============================================ */
+    .scroll-indicator {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.4rem;
+      color: var(--text-secondary);
+      animation: scroll-bounce 1.5s ease-in-out infinite;
+      cursor: pointer;
+      background: rgba(255,248,232,0.6);
+      padding: 6px 14px;
+      border: 2px solid var(--warm-brown-light);
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    }
+
+    .scroll-indicator span {
+      display: block;
+      font-size: 1rem;
+      margin-top: 3px;
+    }
+
+    @keyframes scroll-bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(6px); }
+    }
+
+    /* ============================================
+       FOOTER
+       ============================================ */
+    .footer {
+      position: relative;
+      z-index: 4;
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.5rem;
+      color: var(--text-secondary);
+      font-family: 'Press Start 2P', monospace;
+      letter-spacing: 2px;
+      background: linear-gradient(transparent, rgba(90,62,42,0.15));
+    }
+
+    /* ============================================
+       ANIMATIONS - ENTRY
+       ============================================ */
+    .fade-in-up {
+      opacity: 0;
+      transform: translateY(25px);
+      animation: fadeInUp 0.7s ease forwards;
+    }
+
+    .fade-in-up:nth-child(1) { animation-delay: 0.1s; }
+    .fade-in-up:nth-child(2) { animation-delay: 0.25s; }
+    .fade-in-up:nth-child(3) { animation-delay: 0.4s; }
+    .fade-in-up:nth-child(4) { animation-delay: 0.55s; }
+    .fade-in-up:nth-child(5) { animation-delay: 0.7s; }
+
+    @keyframes fadeInUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 600px) {
+      .hero { padding: 1rem; }
+      .sign-board { padding: 1.5rem 1rem 1.2rem; }
+      .mascot-area { width: 120px; height: 100px; }
+      .mascot { font-size: 56px; }
+      .features { grid-template-columns: 1fr; padding: 0 1rem 2rem; }
+      .pixel-btn { padding: 0.7rem 1.2rem; font-size: 0.45rem; }
+      .tree-1 { font-size: 36px; }
+      .tree-2 { font-size: 42px; }
+      .tree-3 { font-size: 28px; }
+    }
+
+    /* ============================================
+       PIXEL SCANLINE OVERLAY (subtle)
+       ============================================ */
+    .scanlines {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 999;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== SCANLINES ===== -->
+  <div class="scanlines"></div>
+
+  <!-- ===== SKY CANVAS ===== -->
+  <canvas id="sky-canvas"></canvas>
+
+  <!-- ===== HILLS (rendered by JS) ===== -->
+
+  <!-- ===== TREES ===== -->
+  <div class="tree tree-1" aria-hidden="true">🌳</div>
+  <div class="tree tree-2" aria-hidden="true">🌲</div>
+  <div class="tree tree-3" aria-hidden="true">🌳</div>
+
+  <!-- ===== GRASS ===== -->
+  <div class="grass-tuft" aria-hidden="true">🌿</div>
+  <div class="grass-tuft" aria-hidden="true">🌱</div>
+  <div class="grass-tuft" aria-hidden="true">🌾</div>
+  <div class="grass-tuft" aria-hidden="true">🌿</div>
+  <div class="grass-tuft" aria-hidden="true">🌱</div>
+  <div class="grass-tuft" aria-hidden="true">🌾</div>
+  <div class="grass-tuft" aria-hidden="true">🌿</div>
+  <div class="grass-tuft" aria-hidden="true">🌱</div>
+  <div class="grass-tuft" aria-hidden="true">🌾</div>
+  <div class="grass-tuft" aria-hidden="true">🌿</div>
+
+  <!-- ===== CROPS ===== -->
+  <div class="crop" aria-hidden="true">🥕</div>
+  <div class="crop" aria-hidden="true">🌽</div>
+  <div class="crop" aria-hidden="true">🍓</div>
+  <div class="crop" aria-hidden="true">🥔</div>
+  <div class="crop" aria-hidden="true">🌻</div>
+
+  <!-- ===== FALLING PETALS ===== -->
+  <div class="petal" aria-hidden="true">🌸</div>
+  <div class="petal" aria-hidden="true">🌸</div>
+  <div class="petal" aria-hidden="true">🌸</div>
+  <div class="petal" aria-hidden="true">🌸</div>
+  <div class="petal" aria-hidden="true">🌸</div>
+  <div class="petal" aria-hidden="true">🌸</div>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+
+    <!-- WOODEN SIGN BOARD -->
+    <div class="sign-board fade-in-up">
+      <div class="sign-nail"></div>
+      <div class="sign-nail"></div>
+
+      <!-- LOGO -->
+      <div class="logo-wrapper">
+        <div class="pixel-logo">
+          ★ ピクセル★スター ★
+          <span class="sub">✨ Pixel Star ✨</span>
+        </div>
+      </div>
+
+      <!-- MASCOT -->
+      <div class="mascot-area" id="mascot-area">
+        <div class="mascot" id="mascot">
+          <span class="mascot-flower">🌻</span>
+          🐣
+        </div>
+      </div>
+
+      <!-- DECO ROW -->
+      <div class="deco-row">
+        <span>🌻</span>
+        <span>💖</span>
+        <span>⭐</span>
+        <span>💖</span>
+        <span>🌻</span>
+      </div>
+
+      <!-- TAGLINE -->
+      <p class="tagline">
+        在晨光洒落的农场里，开始你的新生活吧！
+        <br>
+        <span class="tagline-sub">— 每一颗种子，都是一个梦想 —</span>
+      </p>
+
+      <!-- BUTTONS -->
+      <div>
+        <button class="pixel-btn">🌱 开始新生活</button>
+        <button class="pixel-btn secondary">📖 了解更多</button>
+      </div>
+    </div>
+
+    <!-- SCROLL -->
+    <div class="scroll-indicator" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">
+      SCROLL
+      <span>▼</span>
+    </div>
+  </section>
+
+  <!-- ===== SEPARATOR ===== -->
+  <div class="pixel-separator">🌾 ✦ 🌻 ✦ 🌾</div>
+
+  <!-- ===== FEATURES ===== -->
+  <section id="features" class="features">
+    <div class="feature-card">
+      <span class="feature-icon">🌾</span>
+      <h3 class="feature-title">农 作</h3>
+      <p class="feature-desc">四季轮转的农场生活。播种、浇水、收获——在劳作中找到内心的平静。</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">🎀</span>
+      <h3 class="feature-title">装 扮</h3>
+      <p class="feature-desc">数百种可爱服装和配饰。自由搭配，打造属于你的独特角色形象。</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">🌟</span>
+      <h3 class="feature-title">☆ 星 辰 ☆</h3>
+      <p class="feature-desc">收集星辰碎片，解锁隐藏剧情。每个星星背后都有一段温暖的故事。</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">🎣</span>
+      <h3 class="feature-title">探 索</h3>
+      <p class="feature-desc">矿山、湖泊、秘密森林——广阔的像素世界等待你去发现。</p>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div style="margin-bottom:0.4rem;font-size:1rem;">🌻 💖 🌾 ⭐ 🌾 💖 🌻</div>
+    © 2026 ピクセル★スター — Made with 🌱 and ★
+  </footer>
+
+  <script>
+    // ==========================================
+    // SKY & HILLS (Stardew-inspired pixel art)
+    // ==========================================
+    (function initScene() {
+      const canvas = document.getElementById('sky-canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+
+      let w, h;
+
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      }
+
+      function drawScene() {
+        // --- Sky gradient (warm pixel sky) ---
+        for (let y = 0; y < h; y++) {
+          const t = y / h;
+          const r = Math.round(70 + t * 60);
+          const g = Math.round(130 - t * 30);
+          const b = Math.round(190 - t * 90);
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          ctx.fillRect(0, y, w, 1);
+        }
+
+        // --- Sun / light source (warm glow) ---
+        const sunX = w * 0.75;
+        const sunY = h * 0.2;
+        const glowR = Math.min(w, h) * 0.15;
+        for (let r = glowR; r > 0; r -= 3) {
+          const alpha = (1 - r / glowR) * 0.15;
+          ctx.fillStyle = `rgba(248,216,160,${alpha})`;
+          ctx.beginPath();
+          ctx.arc(sunX, sunY, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // --- Clouds (pixel chunky clouds) ---
+        const drawCloud = (cx, cy, size) => {
+          ctx.fillStyle = 'rgba(255,255,255,0.25)';
+          [
+            [0, 0, size], [-size*1.2, -size*0.3, size*0.8],
+            [size*1.2, -size*0.2, size*0.9], [-size*0.5, size*0.3, size*0.7],
+            [size*0.6, size*0.3, size*0.8]
+          ].forEach(([dx, dy, s]) => {
+            ctx.fillRect(cx + dx - s/2, cy + dy - s/3, s, s * 0.5);
+          });
+        };
+
+        drawCloud(w * 0.15, h * 0.12, 50);
+        drawCloud(w * 0.4, h * 0.08, 40);
+        drawCloud(w * 0.85, h * 0.15, 45);
+
+        // --- Hills (pixel-style stepped hills) ---
+        // Back hill (darker green)
+        const hillColor1 = '#3A7A30';
+        ctx.fillStyle = hillColor1;
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        for (let x = 0; x <= w; x += 4) {
+          const hillY = h - 180 - Math.sin(x * 0.003) * 60 - Math.sin(x * 0.007) * 30;
+          ctx.lineTo(x, hillY);
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fill();
+
+        // Mid hill
+        const hillColor2 = '#4A9A38';
+        ctx.fillStyle = hillColor2;
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        for (let x = 0; x <= w; x += 4) {
+          const hillY = h - 140 - Math.sin(x * 0.004 + 1) * 50 - Math.sin(x * 0.009) * 25;
+          ctx.lineTo(x, hillY);
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fill();
+
+        // Front hill (lightest green)
+        const hillColor3 = '#5EB848';
+        ctx.fillStyle = hillColor3;
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        for (let x = 0; x <= w; x += 4) {
+          const hillY = h - 100 - Math.sin(x * 0.005 + 2) * 40 - Math.sin(x * 0.012) * 20;
+          ctx.lineTo(x, hillY);
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fill();
+
+        // --- Grass texture on front hill (pixel dots) ---
+        ctx.fillStyle = 'rgba(90,160,56,0.3)';
+        for (let i = 0; i < 80; i++) {
+          const gx = Math.random() * w;
+          const gh = h - 80 - Math.sin(gx * 0.005 + 2) * 40 - Math.sin(gx * 0.012) * 20;
+          const dots = 3 + Math.floor(Math.random() * 4);
+          for (let d = 0; d < dots; d++) {
+            ctx.fillRect(
+              gx + d * 3 - dots * 1.5,
+              gh + 4 + d * 3,
+              2, 2
+            );
+          }
+        }
+
+        // --- Path / dirt road ---
+        ctx.fillStyle = '#8B7A5A';
+        const pathCenter = w * 0.5;
+        const pathW = 20;
+        ctx.beginPath();
+        ctx.moveTo(pathCenter - pathW, h);
+        for (let x = 0; x <= w; x += 4) {
+          const py = h - 60 - Math.sin(x * 0.003 + 0.5) * 30;
+          ctx.lineTo(x, py);
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.globalAlpha = 0.15;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      resize();
+      drawScene();
+
+      window.addEventListener('resize', () => {
+        resize();
+        drawScene();
+      });
+    })();
+
+    // ==========================================
+    // MASCOT EYE TRACKING
+    // ==========================================
+    (function initEyeTracking() {
+      const mascot = document.getElementById('mascot');
+      const area = document.getElementById('mascot-area');
+      let currentEmoji = '🐣';
+      let isHappy = false;
+
+      function setMascot(emoji, flower) {
+        mascot.innerHTML = '<span class="mascot-flower">' + (flower || '🌻') + '</span>' + emoji;
+      }
+
+      document.addEventListener('mousemove', (e) => {
+        const rect = area.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = 300;
+
+        const angle = Math.atan2(dy, dx);
+        mascot.style.transform = `translateY(${-5 * (1 - Math.min(dist / maxDist, 0.5))}px) rotate(${angle * 0.12}rad)`;
+
+        if (dist < 100 && !isHappy) {
+          setMascot('😊');
+          isHappy = true;
+          setTimeout(() => {
+            setMascot(currentEmoji);
+            isHappy = false;
+          }, 1200);
+        }
+      });
+
+      const blinks = ['🐣', '🐥', '🐤'];
+      let blinkIdx = 0;
+      setInterval(() => {
+        if (!isHappy) {
+          blinkIdx = (blinkIdx + 1) % blinks.length;
+          setMascot(blinks[blinkIdx], blinkIdx === 0 ? '🌻' : blinkIdx === 1 ? '🌼' : '🌸');
+          currentEmoji = blinks[blinkIdx];
+          setTimeout(() => {
+            if (!isHappy) setMascot('🐣');
+            currentEmoji = '🐣';
+          }, 500);
+        }
+      }, 3500 + Math.random() * 2000);
+    })();
+
+    // ==========================================
+    // ENTRY ANIMATION (Intersection Observer)
+    // ==========================================
+    (function initScrollAnim() {
+      const cards = document.querySelectorAll('.feature-card');
+      cards.forEach((card, i) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        card.style.transition = `all 0.5s ease ${i * 0.15}s`;
+      });
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.style.opacity = '1';
+            entry.target.style.transform = 'translateY(0)';
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.2 });
+
+      cards.forEach(card => observer.observe(card));
+    })();
+  </script>
+</body>
+</html>

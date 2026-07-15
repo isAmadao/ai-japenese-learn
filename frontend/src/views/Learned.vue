@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchLearned, fetchLearnedTypeCounts } from '@/api'
-import { speakJapanese } from '@/utils/speech'
+import { fetchLearned, fetchLearnedTypeCounts, markAsMastered } from '@/api'
+import { speakJapanese, stopSpeech } from '@/utils/speech'
 import type { WordResponse, LearnedTypeCounts } from '@/types'
+import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const router = useRouter()
 
@@ -14,6 +15,7 @@ const totalPages = ref(1)
 const pageSize = 30
 const loading = ref(false)
 const error = ref<string | null>(null)
+const actionMsg = ref<string | null>(null)
 const activeType = ref<string | null>(null)
 const typeCounts = ref<LearnedTypeCounts>({ N5: 0, N4: 0, N3: 0, N2: 0, N1: 0 })
 
@@ -26,6 +28,9 @@ const typeTabs = [
   { key: 'N1', label: 'N1' },
 ]
 
+import { TYPE_TABS } from '@/utils/constants'
+const typeTabs = TYPE_TABS
+
 onMounted(async () => {
   await loadTypeCounts()
   await loadWords()
@@ -34,10 +39,11 @@ onMounted(async () => {
 watch(activeType, () => { page.value = 1; loadWords() })
 watch(page, () => loadWords())
 
+onUnmounted(() => { stopSpeech() })
+
 async function loadTypeCounts() {
-  try {
-    typeCounts.value = await fetchLearnedTypeCounts()
-  } catch { /* silent */ }
+  try { typeCounts.value = await fetchLearnedTypeCounts() }
+  catch { /* counts silently default to 0 on error */ }
 }
 
 async function loadWords() {
@@ -60,6 +66,23 @@ function goToDetail(id: number) {
   router.push(`/word/${id}`)
 }
 
+async function handleMarkMastered(wordId: number) {
+  try {
+    const result = await markAsMastered(wordId)
+    if (result.success) {
+      actionMsg.value = result.message || '已标记为已熟练'
+      setTimeout(() => { actionMsg.value = null }, 2000)
+    } else {
+      actionMsg.value = result.message || '操作失败'
+    }
+    loadWords()
+    loadTypeCounts()
+  } catch (e: any) {
+    actionMsg.value = '操作失败: ' + (e?.response?.data?.detail || '网络错误')
+    setTimeout(() => { actionMsg.value = null }, 3000)
+  }
+}
+
 function tabCount(key: string | null): string {
   if (!key) return String(Object.values(typeCounts.value).reduce((a, b) => a + b, 0))
   return String(typeCounts.value[key as string] || 0)
@@ -72,7 +95,6 @@ function tabCount(key: string | null): string {
       <h1>✅ 已学习</h1>
     </div>
 
-    <!-- Type tabs -->
     <div class="type-tabs">
       <button
         v-for="tab in typeTabs"
@@ -86,25 +108,23 @@ function tabCount(key: string | null): string {
       </button>
     </div>
 
-    <!-- Loading -->
-    <div v-if="loading && words.length === 0" class="loading">加载中</div>
+    <p v-if="actionMsg" class="msg-success">{{ actionMsg }}</p>
 
-    <!-- Error -->
-    <div v-else-if="error" class="error-msg">
-      <p>⚠ {{ error }}</p>
-      <button class="btn btn-primary btn-sm" style="margin-top: 12px" @click="loadWords">重试</button>
+    <div v-if="loading && words.length === 0" class="loading">加载中</div>
+    <div v-if="loading && words.length > 0" class="loading-overlay">
+      <span class="loading-spinner"></span>
     </div>
 
-    <!-- Empty -->
-    <div v-else-if="words.length === 0" class="empty-state">
-      <p>还没有已学习的单词</p>
+    <ErrorMessage v-else-if="error" :message="error" @retry="loadWords" />
+
+    <div v-else-if="words.length === 0 && !loading" class="empty-state">
+      <p>📭 还没有已学习的单词</p>
       <p class="hint">在收藏页中将单词标记为"已学习"后，它们会出现在这里</p>
-      <router-link to="/favorites" class="btn btn-accent btn-sm" style="margin-top: 12px; text-decoration: none">
+      <router-link to="/favorites" class="btn btn-accent btn-sm" style="margin-top: 12px">
         去收藏页
       </router-link>
     </div>
 
-    <!-- Word Grid -->
     <div v-else class="word-grid">
       <div
         v-for="word in words"
@@ -112,19 +132,30 @@ function tabCount(key: string | null): string {
         class="word-card card"
         @click="goToDetail(word.id)"
       >
+        <div class="card-stripe"></div>
         <div class="card-header">
-          <h3 class="jp-text">{{ word.name }}</h3>
-          <span class="kana">{{ word.kana }}</span>
+          <div class="card-header-left">
+            <h3 class="jp-text">{{ word.name }}</h3>
+            <span class="kana">{{ word.kana }}</span>
+          </div>
+          <button class="speak-btn-sm" title="朗读" @click.stop="speakJapanese(word.name)">🔊</button>
         </div>
         <p class="translation">{{ word.translation }}</p>
+        <div v-if="word.example_sentences && word.example_sentences.length > 0" class="sentences">
+          <div v-for="(sent, si) in word.example_sentences.slice(0, 1)" :key="si" class="sentence">
+            <span class="sent-jp">{{ sent.japanese }}</span>
+            <span class="sent-cn">{{ sent.chinese }}</span>
+          </div>
+        </div>
         <div class="card-footer">
           <span v-if="word.type" class="type-badge">{{ word.type }}</span>
-          <button class="speak-btn-sm" title="朗读" @click.stop="speakJapanese(word.name)">🔊</button>
+          <button class="btn-mastered" @click.stop="handleMarkMastered(word.id)" title="标记为已熟练">
+            🎯 已熟练
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Pagination -->
     <div v-if="totalPages > 1" class="pagination">
       <button :disabled="page <= 1" @click="page--">上一页</button>
       <span class="page-info">{{ page }} / {{ totalPages }}</span>
@@ -137,22 +168,78 @@ function tabCount(key: string | null): string {
 .learned { max-width: 1000px; margin: 0 auto; }
 
 .type-tabs {
-  display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
+  display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap;
 }
 .type-tab {
   display: flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border: 2px solid var(--border);
-  border-radius: 20px; background: white; cursor: pointer;
-  font-weight: 600; font-size: 0.9rem; transition: all 0.2s;
+  padding: 8px 14px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  border: 3px solid var(--wood-dark);
+  background: var(--cream);
+  cursor: pointer;
+  font-weight: 400;
+  transition: all 0.05s step-start;
+  color: var(--text);
+  box-shadow: 2px 2px 0 var(--wood-dark);
 }
-.type-tab:hover { border-color: var(--accent); color: var(--accent); }
-.type-tab.active { border-color: var(--primary); background: var(--primary); color: white; }
+.type-tab:hover { background: var(--wood-light); }
+.type-tab.active {
+  background: var(--grass);
+  color: var(--cream);
+  border-color: var(--grass-dark);
+  box-shadow: 2px 2px 0 var(--grass-dark);
+}
 .tab-count {
-  font-size: 0.7rem; font-weight: 400;
-  background: rgba(255,255,255,0.2); padding: 1px 7px;
-  border-radius: 10px;
+  font-size: 0.35rem;
+  font-weight: 400;
+  background: rgba(0,0,0,0.08);
+  padding: 2px 6px;
+  border: 1px solid currentColor;
 }
-.type-tab:not(.active) .tab-count { background: var(--bg); color: var(--text-light); }
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--wood-light);
+  border-top-color: var(--golden);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.msg-success {
+  color: var(--grass-dark);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 8px;
+  background: rgba(74, 124, 89, 0.08);
+  border: 2px solid var(--grass-dark);
+  margin-bottom: 12px;
+}
+.sentences {
+  margin: 6px 0 10px;
+  padding: 6px 8px;
+  background: var(--cream);
+  border: 2px solid var(--wood-light);
+  font-size: 0.75rem;
+}
+.sentence {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sent-jp { color: var(--text); font-weight: 500; }
+.sent-cn { color: var(--text-light); font-size: 0.7rem; }
+.type-tab.active .tab-count {
+  background: rgba(255,255,255,0.2);
+}
 
 .word-grid {
   display: grid;
@@ -166,31 +253,100 @@ function tabCount(key: string | null): string {
   .word-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-.word-card { cursor: pointer; transition: all 0.2s; }
-.word-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.word-card {
+  cursor: pointer;
+  transition: all 0.15s step-start;
+  position: relative;
+  overflow: hidden;
+}
+.word-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset -3px -3px 0 var(--wood-dark),
+    inset 3px 3px 0 var(--wood-light),
+    3px 4px 0 rgba(60,40,20,0.15);
+}
 
-.card-header { margin-bottom: 4px; }
-.jp-text { font-size: 1.1rem; font-weight: 700; margin-bottom: 1px; }
-.kana { font-size: 0.8rem; color: var(--text-light); }
-.translation { font-size: 0.85rem; color: var(--accent); margin-bottom: 8px; }
+.card-stripe {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--golden), var(--grass-light));
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+.card-header-left { flex: 1; min-width: 0; }
+.jp-text { font-size: 1.3rem; font-weight: 700; margin-bottom: 2px; }
+.kana { font-size: 0.9rem; color: var(--text-light); }
+.translation { font-size: 0.95rem; color: var(--warm-brown); font-weight: 600; margin-bottom: 8px; }
 
 .card-footer {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-.type-badge {
-  font-size: 0.65rem; font-weight: 600; padding: 2px 8px;
-  border-radius: 10px; background: var(--accent-light); color: var(--accent);
+.btn-mastered {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  padding: 8px 14px;
+  border: 3px solid var(--grass-dark);
+  background: var(--cream);
+  color: var(--grass-dark);
+  cursor: pointer;
+  transition: all 0.05s step-start;
+  font-weight: 400;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 var(--grass-dark);
+}
+.btn-mastered:hover {
+  background: var(--grass);
+  color: var(--cream);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--grass-dark);
 }
 .speak-btn-sm {
-  background: none; border: 1px solid var(--border); border-radius: 50%;
-  width: 28px; height: 28px; cursor: pointer; font-size: 0.8rem;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
+  background: var(--cream);
+  border: 3px solid var(--wood-dark);
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.05s step-start;
+  box-shadow: 2px 2px 0 var(--wood-dark);
 }
-.speak-btn-sm:hover { background: var(--accent-light); border-color: var(--accent); }
+.speak-btn-sm:hover {
+  background: var(--golden-light);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--wood-dark);
+}
 
-.empty-state { text-align: center; padding: 60px; color: var(--text-light); }
+.empty-state {
+  text-align: center;
+  padding: 60px;
+  color: var(--text-light);
+  background: var(--bg-card);
+  border: 4px solid var(--wood-dark);
+  box-shadow:
+    inset -3px -3px 0 var(--wood-dark),
+    inset 3px 3px 0 var(--wood-light);
+  max-width: 450px;
+  margin: 40px auto;
+}
 .hint { font-size: 0.85rem; margin-top: 8px; }
 
-.page-info { padding: 8px 12px; color: var(--text-light); font-size: 0.9rem; }
+.page-info {
+  padding: 8px 12px;
+  color: var(--cream);
+  font-size: 0.75rem;
+  font-family: 'Press Start 2P', monospace;
+}
 </style>

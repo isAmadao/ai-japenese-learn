@@ -4,9 +4,14 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+# Load .env from project root (parent of backend/)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
+PROJECT_ROOT = BASE_DIR.parent  # project root (where .env lives)
+dotenv_path = PROJECT_ROOT / ".env"
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
+else:
+    load_dotenv()  # fallback to CWD
 
 
 class Settings:
@@ -47,9 +52,17 @@ class Settings:
     LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen-plus")
     LLM_EMBEDDING_MODEL: str = os.getenv("LLM_EMBEDDING_MODEL", "text-embedding-v3")
 
+    # Auth service (central JWT issuer)
+    AUTH_SERVICE_URL: str = os.getenv("AUTH_SERVICE_URL", "http://localhost:8080")
+    # Fallback: explicit RSA public key PEM (used when AUTH_SERVICE_URL is empty)
+    JWT_PUBLIC_KEY: str = os.getenv("JWT_PUBLIC_KEY", "")
+
     # Redis cache TTL (seconds)
     CACHE_TTL_WORDS: int = int(os.getenv("CACHE_TTL_WORDS", "3600"))
     CACHE_TTL_ARTICLE: int = int(os.getenv("CACHE_TTL_ARTICLE", "7200"))
+
+    # External API keys (MCP-style integrations)
+    PEXELS_API_KEY: str = os.getenv("PEXELS_API_KEY", "")
 
 
 settings = Settings()

@@ -18,6 +18,7 @@ class CachedWord(BaseModel):
     description: Optional[str] = None
     type: Optional[str] = None
     example_sentences: list[ExampleSentence] = []
+    scene: list[str] = []
 
 
 class RandomWordsResponse(BaseModel):
@@ -43,6 +44,8 @@ class WordResponse(BaseModel):
     description: Optional[str] = None
     type: Optional[str] = None
     example_sentences: list[ExampleSentence] = []
+    image_url: Optional[str] = None
+    scene: list[str] = []
     ext: Optional[dict[str, Any]] = None
     created_at: Optional[str] = None
 
@@ -62,3 +65,24 @@ class FavoriteListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class SearchRequest(BaseModel):
+    q: str = ""
+    top_k: int = 20
+
+
+class SearchResultItem(BaseModel):
+    id: int
+    name: str
+    kana: str
+    translation: str
+    description: Optional[str] = None
+    type: Optional[str] = None
+    score: float = 0.0
+
+
+class SearchResponse(BaseModel):
+    results: list[SearchResultItem]
+    total: int
+    query: str

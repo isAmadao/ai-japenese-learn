@@ -1,0 +1,34 @@
+# Dependencies
+frontend/node_modules
+backend/.venv
+backend/__pycache__
+
+# Test / dev
+backend/tests
+backend/.pytest_cache
+
+# Data (runtime — use volume mount for sqlite db)
+backend/data/app.db
+backend/data/app_v2.db
+backend/data/milvus.db
+backend/data/vectors_fallback.json
+
+# Git / IDE
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+
+# Environment (secrets — not baked into image)
+.env
+.env.local
+
+# OS
+__MACOSX
+.DS_Store
+Thumbs.db
+
+# Docs / design docs (not needed at runtime)
+docs
+docs

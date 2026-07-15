@@ -16,6 +16,7 @@
 | 008 | [容器化方案](008-containerization.md) | 🔄 待决策 | 2026-06-04 |
 | 009 | [MeCab 假名校验](009-kana-verification.md) | ✅ 已采纳 | 2026-06-04 |
 | 010 | [学习状态机](010-learning-status-machine.md) | ✅ 已采纳 | 2026-06-05 |
+| 011 | [注册安全升级](011-security-upgrade.md) | ✅ 已采纳 | 2026-06-14 |
 
 ## 遗留问题
 

@@ -16,6 +16,8 @@ class Word(Base):
     description = Column(Text, nullable=True, comment="详细说明 / 用法备注")
     type = Column(String(10), nullable=True, comment="难度级别 N1-N5")
     example_sentences = Column(JSON, nullable=True, comment="例句 [{'japanese':'','chinese':''}]")
+    image_url = Column(String(500), nullable=True, comment="Pexels 配图 URL")
+    scene = Column(JSON, nullable=True, comment="场景标签列表，如 ['日常生活','旅游']")
     ext = Column(JSON, nullable=True, comment="备用扩展字段（生产环境使用）")
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -28,6 +30,8 @@ class Word(Base):
             "description": self.description,
             "type": self.type,
             "example_sentences": self.example_sentences or [],
+            "image_url": self.image_url,
+            "scene": self.scene or [],
             "ext": self.ext or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

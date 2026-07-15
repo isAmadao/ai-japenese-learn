@@ -1,0 +1,114 @@
+# ==============================================================
+#  docker-compose.yml — AI 日本語学習
+#  nginx 作为唯一外部入口（端口 80）
+#  Python 后端和 Redis 在内部网络通信
+# ==============================================================
+
+services:
+  # ── Nginx 反向代理 ──────────────────────────────────────────
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # 生产环境 HTTPS（取消注释，并配置证书）
+      # - "443:443"
+    # 生产环境 SSL 证书挂载（取消注释，将证书放在 ./ssl/ 下）
+    # volumes:
+    #   - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - app_net
+
+  # ── Redis 缓存 ──────────────────────────────────────────────
+  redis:
+    image: docker.m.daocloud.io/library/redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+    networks:
+      - app_net
+
+  # ── Python 后端 ─────────────────────────────────────────────
+  app:
+    build: .
+    restart: unless-stopped
+    # 端口 8000 仅对内暴露（nginx 通过内部网络转发），不映射到宿主机。
+    # 本地开发另开终端用 uvicorn 直接跑，与 Docker 无关。
+    expose:
+      - "8000"
+    environment:
+      # HuggingFace 镜像（国内网络加速）
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
+
+      # LLM — 请在 .env 中设置或通过 docker env 传入
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_API_BASE=${LLM_API_BASE:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - LLM_MODEL=${LLM_MODEL:-qwen-plus}
+
+      # SMTP (邮箱验证)
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL:-}
+
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+      # Database (SQLite, 持久化在 volume 中)
+      - USE_SQLITE=true
+      - SQLITE_PATH=/app/data/app.db
+
+      # Frontend dist (由 nginx 托管，后端不再需要)
+      # - FRONTEND_DIST=/app/frontend/dist
+
+      # Auth service (central JWT issuer)
+      - AUTH_SERVICE_URL=http://auth-service:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - app_data:/app/data
+      - hf_cache:/root/.cache/huggingface    # fastembed model cache
+    networks:
+      - app_net
+
+  # ── Auth Service ──────────────────────────────────────────
+  auth-service:
+    build: ../auth-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - auth_data:/app/data
+    environment:
+      - USE_SQLITE=true
+      - DATABASE_URL=sqlite:///./data/auth.db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
+
+volumes:
+  redis_data:
+  app_data:
+  hf_cache:
+  auth_data:

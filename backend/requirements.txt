@@ -5,16 +5,21 @@ sqlalchemy>=2.0.0
 pymysql>=1.1.0
 python-dotenv>=1.0.0
 pydantic>=2.0.0
-pydantic-settings>=2.0.0
 
-# LangChain + LLM
-langchain>=0.2.0
-langchain-community>=0.2.0
+# Auth client — JWT verification via central auth-service
+# (fastapi-auth-client depends on python-jose, cryptography, httpx)
+fastapi-auth-client>=0.1.0
+
+# LangChain + LLM (只装实际用到的子包，避免 langchain-community 全量依赖)
 langchain-openai>=0.1.0
 openai>=1.35.0
 
 # Vector DB (optional dev)
-pymilvus>=2.4.0
+pymilvus[milvus_lite]>=2.4.0
+
+# Local embedding model (optional — sentence-transformers + PyTorch ~2GB)
+# Install separately: pip install sentence-transformers
+# Set HF_ENDPOINT=https://hf-mirror.com for China network
 
 # Cache (optional dev)
 redis>=5.0.0
@@ -22,5 +27,17 @@ redis>=5.0.0
 # HTTP
 httpx>=0.27.0
 
-# Security
-cryptography>=42.0.0
+# Security / Auth (provided by fastapi-auth-client)
+python-multipart>=0.0.30             # FastAPI form data / file upload
+
+# Japanese kana conversion (lightweight, replaces MeCab)
+pykakasi>=2.0.0
+edge-tts>=6.0.0
+
+# Elasticsearch + vector embedding (word search)
+elasticsearch>=8.15.0
+fastembed>=0.3.0                    # ONNX (~200MB), lightweight vector embedding
+
+# OCR — Japanese text extraction from images
+easyocr>=1.7.0                      # ~200MB model download, supports Japanese natively
+Pillow>=10.0.0                      # Image processing (dependency of easyocr & clip_service)

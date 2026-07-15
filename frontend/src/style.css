@@ -1,21 +1,55 @@
-/* === Global Styles === */
+/* ============================================
+   🌾 STARDEW VALLEY THEME — Global Styles
+   Inspired by Stardew Valley's warm pixel art aesthetics
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap');
 
 :root {
-  --primary: #e63946;
-  --primary-light: #ff6b6b;
-  --accent: #457b9d;
-  --accent-light: #a8dadc;
-  --bg: #f1faee;
-  --bg-card: #ffffff;
-  --text: #1d3557;
-  --text-light: #6c757d;
-  --border: #dee2e6;
-  --success: #2ecc71;
-  --warning: #f39c12;
-  --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.12);
-  --radius: 12px;
-  --radius-sm: 8px;
+  /* 🌿 Nature palette */
+  --grass:       #7CC850;
+  --grass-light: #A8E070;
+  --grass-dark:  #4A8A28;
+
+  /* 🌾 Warm earth tones */
+  --warm-brown:       #6B4A2A;
+  --warm-brown-light: #C4A87A;
+  --warm-brown-dark:  #4A2E18;
+
+  /* 🌟 Golden accents */
+  --golden:       #E8B830;
+  --golden-light: #F0D060;
+  --warm-orange:  #D88030;
+
+  /* 🎀 Pink accent (sparingly) */
+  --pink: #E888A0;
+
+  /* 🌤️ Sky & surfaces */
+  --sky-top:    #4080B0;
+  --sky-bottom: #D8B888;
+  --cream:      #FFF8E8;
+  --wood-light: #D4B88A;
+  --wood-mid:   #A88858;
+  --wood-dark:  #6A4A28;
+  --bg-card:    #FFF8E8;
+  --bg-hint:    #FFF0D0;
+
+  /* 📝 Text — 更高对比度 */
+  --text:       #2A1A0A;
+  --text-light: #4A3A2A;
+  --text-muted: #8A7A6A;
+
+  /* 🎯 Status */
+  --success: #5AA830;
+  --warning: #D88030;
+  --danger:  #D05050;
+
+  /* 📐 Effects */
+  --shadow:       2px 3px 0 rgba(40, 20, 10, 0.15);
+  --shadow-hover: 3px 4px 0 rgba(40, 20, 10, 0.22);
+  --radius:       0;
+  --radius-sm:    0;
+  --pixel:        3px;
 }
 
 * {
@@ -25,155 +59,231 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC',
-    'Hiragino Sans', 'Yu Gothic', sans-serif;
-  background: var(--bg);
+  font-family: 'Zen Maru Gothic', 'Noto Sans SC', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 100%);
   color: var(--text);
   min-height: 100vh;
-  line-height: 1.6;
+  line-height: 1.8;
+  font-size: 17px;
+  background-attachment: fixed;
 }
 
 #app {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  min-height: 100vh;
+  position: relative;
 }
 
-/* === Navigation === */
+/* ============================================
+   🌾 NAVIGATION — Stardew Valley wooden sign bar
+   ============================================ */
 nav {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 16px 0;
-  margin-bottom: 32px;
-  border-bottom: 2px solid var(--accent-light);
+  gap: 4px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  background: var(--wood-mid);
+  border: 4px solid var(--wood-dark);
+  box-shadow:
+    inset -3px -3px 0 var(--wood-dark),
+    inset 3px 3px 0 var(--wood-light),
+    0 4px 0 rgba(0,0,0,0.1);
+  position: relative;
+}
+
+/* Top decorative stripe */
+nav::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--golden), var(--grass-light), var(--pink), var(--golden));
 }
 
 nav .logo {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--primary);
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.65rem, 1.8vw, 0.95rem);
+  color: var(--cream);
   text-decoration: none;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 0 var(--warm-brown-dark);
+  padding: 8px 16px;
+  margin-right: 8px;
+  white-space: nowrap;
 }
 
 nav a {
-  color: var(--text);
+  color: var(--cream);
   text-decoration: none;
-  font-weight: 500;
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 8px 14px;
+  transition: all 0.1s step-start;
+  background: transparent;
+  border: 2px solid transparent;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
 }
 
 nav a:hover,
 nav a.router-link-active {
-  background: var(--primary);
-  color: white;
+  background: var(--warm-brown-dark);
+  border-color: var(--warm-brown-dark);
+  box-shadow:
+    inset -2px -2px 0 rgba(0,0,0,0.2),
+    inset 2px 2px 0 var(--warm-brown-light);
 }
 
-/* === Common Components === */
+/* ============================================
+   🎮 Common Components
+   ============================================ */
+
+/* --- Pixel Buttons --- */
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
   border: none;
-  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 0.95rem;
-  font-weight: 500;
-  transition: all 0.2s;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.55rem, 1.8vw, 0.8rem);
+  font-weight: 400;
+  letter-spacing: 1px;
+  transition: all 0.05s step-start;
+  text-transform: uppercase;
+  color: var(--cream);
+  image-rendering: pixelated;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: white;
+  background: var(--grass);
+  box-shadow:
+    inset -3px -3px 0 var(--grass-dark),
+    inset 3px 3px 0 var(--grass-light),
+    0 3px 0 var(--grass-dark);
 }
 
 .btn-primary:hover {
-  background: var(--primary-light);
-  transform: translateY(-1px);
+  transform: translateY(1px);
+  box-shadow:
+    inset -3px -3px 0 var(--grass-dark),
+    inset 3px 3px 0 var(--grass-light),
+    0 1px 0 var(--grass-dark);
+}
+
+.btn-primary:active {
+  transform: translateY(3px);
+  box-shadow:
+    inset -3px -3px 0 var(--grass-dark),
+    inset 3px 3px 0 var(--grass-light);
 }
 
 .btn-accent {
-  background: var(--accent);
-  color: white;
+  background: var(--golden);
+  color: var(--text);
+  box-shadow:
+    inset -3px -3px 0 #C8A030,
+    inset 3px 3px 0 var(--golden-light),
+    0 3px 0 #C8A030;
 }
 
 .btn-accent:hover {
-  background: #3a6b8a;
-  transform: translateY(-1px);
+  transform: translateY(1px);
+  box-shadow:
+    inset -3px -3px 0 #C8A030,
+    inset 3px 3px 0 var(--golden-light),
+    0 1px 0 #C8A030;
 }
 
 .btn-outline {
   background: transparent;
-  border: 2px solid var(--accent);
-  color: var(--accent);
+  border: 3px solid var(--wood-mid);
+  color: var(--warm-brown);
+  box-shadow: 2px 2px 0 var(--wood-dark);
 }
 
 .btn-outline:hover {
-  background: var(--accent);
-  color: white;
+  background: var(--wood-mid);
+  color: var(--cream);
+  border-color: var(--wood-dark);
 }
 
 .btn-sm {
-  padding: 6px 14px;
-  font-size: 0.85rem;
+  padding: 8px 16px;
+  font-size: 0.5rem;
 }
 
-/* === Card === */
+/* --- Pixel Card --- */
 .card {
   background: var(--bg-card);
-  border-radius: var(--radius);
-  padding: 20px;
-  box-shadow: var(--shadow);
-  transition: box-shadow 0.2s;
+  border: 4px solid var(--wood-dark);
+  padding: 18px;
+  box-shadow:
+    inset -3px -3px 0 var(--wood-dark),
+    inset 3px 3px 0 var(--wood-light),
+    2px 3px 0 rgba(60, 40, 20, 0.1);
+  transition: all 0.15s step-start;
 }
 
 .card:hover {
-  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+  box-shadow:
+    inset -3px -3px 0 var(--wood-dark),
+    inset 3px 3px 0 var(--wood-light),
+    3px 4px 0 rgba(60, 40, 20, 0.15);
 }
 
-/* === Pagination === */
+/* --- Pagination --- */
 .pagination {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   margin-top: 24px;
 }
 
 .pagination button {
-  padding: 8px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: white;
+  padding: 10px 18px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  border: 3px solid var(--wood-dark);
+  background: var(--cream);
+  color: var(--text);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.05s step-start;
+  box-shadow: 2px 2px 0 var(--wood-dark);
 }
 
 .pagination button:hover:not(:disabled) {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
+  background: var(--wood-mid);
+  color: var(--cream);
 }
 
 .pagination button:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .pagination button.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+  background: var(--grass);
+  color: var(--cream);
+  border-color: var(--grass-dark);
+  box-shadow: 2px 2px 0 var(--grass-dark);
 }
 
-/* === Loading === */
+/* --- Loading --- */
 .loading {
   text-align: center;
   padding: 60px 20px;
-  color: var(--text-light);
+  color: var(--cream);
+  font-size: 1.1rem;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.15);
 }
 
 .loading::after {
@@ -187,34 +297,38 @@ nav a.router-link-active {
   60%, 100% { content: '...'; }
 }
 
-/* === Error === */
+/* --- Error --- */
 .error-msg {
   text-align: center;
   padding: 40px;
-  color: var(--primary);
+  color: var(--danger);
+  background: var(--cream);
+  border: 3px solid var(--danger);
+  box-shadow: 2px 2px 0 rgba(200,60,60,0.2);
 }
 
-/* === Page Header === */
+/* --- Page Header --- */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+  padding: 0 4px;
 }
 
 .page-header h1 {
-  font-size: 1.6rem;
-  color: var(--text);
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.65rem, 2.5vw, 1rem);
+  color: var(--cream);
+  text-shadow: 2px 2px 0 var(--warm-brown-dark);
+  letter-spacing: 2px;
 }
 
-/* === Modal === */
+/* --- Modal (Stardew style) --- */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(40, 30, 20, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -222,91 +336,120 @@ nav a.router-link-active {
 }
 
 .modal {
-  background: white;
-  border-radius: var(--radius);
-  padding: 32px;
+  background: var(--wood-mid);
+  border: 4px solid var(--wood-dark);
+  padding: 28px;
   min-width: 400px;
-  max-width: 500px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  max-width: 520px;
+  box-shadow:
+    inset -3px -3px 0 var(--wood-dark),
+    inset 3px 3px 0 var(--wood-light),
+    0 8px 24px rgba(0,0,0,0.3);
 }
 
 .modal h2 {
-  margin-bottom: 20px;
-  color: var(--text);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.8rem;
+  color: var(--cream);
+  text-shadow: 2px 2px 0 var(--warm-brown-dark);
+  margin-bottom: 16px;
+  letter-spacing: 1px;
 }
 
 .modal-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: flex-end;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
-/* === Level Selector === */
+/* --- Level Selector (pill style) --- */
 .level-selector {
   display: flex;
-  gap: 12px;
-  margin: 16px 0;
+  gap: 8px;
+  margin: 12px 0;
   flex-wrap: wrap;
 }
 
 .level-btn {
   padding: 12px 24px;
-  border: 2px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: white;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  border: 3px solid var(--wood-dark);
+  background: var(--cream);
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: all 0.2s;
+  font-weight: 400;
+  transition: all 0.05s step-start;
+  color: var(--text);
+  box-shadow: 2px 2px 0 var(--wood-dark);
+  text-align: center;
 }
 
 .level-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--wood-light);
 }
 
 .level-btn.selected {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: white;
+  background: var(--grass);
+  color: var(--cream);
+  border-color: var(--grass-dark);
+  box-shadow: 2px 2px 0 var(--grass-dark);
 }
 
-/* === Back Button === */
+/* --- Back Button --- */
 .back-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--accent);
+  color: var(--cream);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 700;
   margin-bottom: 16px;
   cursor: pointer;
-  background: none;
-  border: none;
-  font-size: 0.95rem;
+  background: var(--wood-mid);
+  border: 3px solid var(--wood-dark);
+  padding: 8px 18px;
+  font-size: 1rem;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  transition: all 0.05s step-start;
+  box-shadow: 2px 2px 0 var(--wood-dark);
 }
 
 .back-btn:hover {
-  color: var(--primary);
+  background: var(--warm-brown-dark);
+  color: var(--cream);
 }
 
-/* === Speak Button === */
+/* --- Speak Button --- */
 .speak-btn {
-  background: none;
-  border: 1px solid var(--accent-light);
-  border-radius: 50%;
+  background: var(--cream);
+  border: 3px solid var(--wood-dark);
   width: 36px;
   height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
-  font-size: 1.1rem;
+  transition: all 0.05s step-start;
+  font-size: 1rem;
+  box-shadow: 2px 2px 0 var(--wood-dark);
 }
 
 .speak-btn:hover {
-  background: var(--accent-light);
-  border-color: var(--accent);
+  background: var(--golden-light);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--wood-dark);
+}
+
+/* --- Type Badge --- */
+.type-badge {
+  display: inline-block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  font-weight: 400;
+  padding: 4px 10px;
+  background: var(--golden);
+  color: var(--text);
+  border: 2px solid var(--warm-brown-dark);
+  box-shadow: 1px 1px 0 var(--warm-brown-dark);
 }

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchArticle } from '@/api'
-import { speakJapanese } from '@/utils/speech'
+import { fetchArticle, generateArticleImage, getPexelsKey } from '@/api'
+import { speakJapanese, stopSpeech } from '@/utils/speech'
+import { highlightWords } from '@/utils/highlight'
 import type { Article } from '@/types'
+import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,9 +13,14 @@ const router = useRouter()
 const article = ref<Article | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+const changingImage = ref(false)
 
 onMounted(() => {
   loadArticle()
+})
+
+onUnmounted(() => {
+  stopSpeech()
 })
 
 watch(() => route.params.id, () => {
@@ -36,6 +43,25 @@ async function loadArticle() {
   }
 }
 
+async function handleChangeImage() {
+  if (!article.value || changingImage.value) return
+  changingImage.value = true
+  try {
+    const result = await generateArticleImage(article.value.id, getPexelsKey() || undefined)
+    if (result.success && result.image_url) {
+      article.value.image_url = result.image_url
+    }
+  } catch { /* ignore */ }
+  changingImage.value = false
+}
+
+/** 高亮文章中涉及的日语单词 */
+function highlightArticleContent(text: string): string {
+  if (!article.value) return text
+  const words = article.value.words.map(w => w.name).filter(Boolean) as string[]
+  return highlightWords(text, words)
+}
+
 </script>
 
 <template>
@@ -46,10 +72,7 @@ async function loadArticle() {
     <div v-if="loading" class="loading">加载中</div>
 
     <!-- Error -->
-    <div v-else-if="error" class="error-msg">
-      <p>⚠ {{ error }}</p>
-      <button class="btn btn-primary btn-sm" style="margin-top: 12px" @click="loadArticle">重试</button>
-    </div>
+    <ErrorMessage v-else-if="error" :message="error" @retry="loadArticle" />
 
     <!-- Article -->
     <template v-else-if="article">
@@ -60,6 +83,19 @@ async function loadArticle() {
           <span class="date">{{ article.created_at ? new Date(article.created_at).toLocaleDateString('zh-CN') : '' }}</span>
           <button class="speak-btn" title="朗读全文" @click="speakJapanese(article.content_japanese)">🔊 朗读全文</button>
         </div>
+      </div>
+
+      <!-- Article image -->
+      <div v-if="article.image_url" class="article-image">
+        <img :src="article.image_url" :alt="article.title" loading="lazy" />
+        <button class="btn-change-image" :disabled="changingImage" @click="handleChangeImage">
+          {{ changingImage ? '更换中...' : '🔄 换一张' }}
+        </button>
+      </div>
+      <div v-else class="article-image-placeholder">
+        <button class="btn-change-image" :disabled="changingImage" @click="handleChangeImage">
+          {{ changingImage ? '加载中...' : '🖼️ 生成配图' }}
+        </button>
       </div>
 
       <!-- Words used in this article -->
@@ -82,7 +118,7 @@ async function loadArticle() {
       <div class="content-section card">
         <div class="content-block">
           <h3>日本語</h3>
-          <div class="jp-text">{{ article.content_japanese }}</div>
+          <div class="jp-text" v-html="highlightArticleContent(article.content_japanese)"></div>
         </div>
 
         <div class="content-divider"></div>
@@ -95,9 +131,7 @@ async function loadArticle() {
     </template>
 
     <!-- Not Found -->
-    <div v-else class="error-msg">
-      <p>文章未找到</p>
-    </div>
+    <ErrorMessage v-else message="文章未找到" />
   </div>
 </template>
 
@@ -119,10 +153,60 @@ async function loadArticle() {
 .meta {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
+.article-image {
+  margin-bottom: 20px;
+  border: 4px solid var(--wood-dark);
+  overflow: hidden;
+  background: var(--cream);
+}
+.article-image img {
+  width: 100%;
+  height: auto;
+  max-height: 400px;
+  object-fit: cover;
+  display: block;
+}
+.article-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  margin-bottom: 20px;
+  border: 3px dashed var(--wood-light);
+  background: var(--cream);
+}
+.btn-change-image {
+  display: block;
+  width: 100%;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  padding: 8px;
+  border: 3px solid var(--wood-dark);
+  background: var(--cream);
+  color: var(--warm-brown);
+  cursor: pointer;
+  transition: all 0.05s step-start;
+  box-shadow: 2px 2px 0 var(--wood-dark);
+  margin-top: 4px;
+}
+.btn-change-image:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--wood-dark);
+}
+.btn-change-image:disabled { opacity: 0.6; cursor: not-allowed; }
+.meta .speak-btn {
+  width: auto;
+  height: auto;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  gap: 4px;
+  white-space: nowrap;
+  border: 3px solid var(--wood-dark);
+}
 .level-badge {
   padding: 4px 14px;
   background: var(--primary);
@@ -213,5 +297,12 @@ async function loadArticle() {
   height: 1px;
   background: var(--border);
   margin: 20px 0;
+}
+
+/* ── 单词高亮（文章中） ──────────────── */
+:deep(.highlight-word) {
+  color: var(--golden);
+  font-weight: 700;
+  text-shadow: 0 0 4px rgba(232, 184, 48, 0.3);
 }
 </style>

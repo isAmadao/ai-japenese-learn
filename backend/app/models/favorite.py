@@ -17,7 +17,7 @@ class Favorite(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     word_id = Column(Integer, ForeignKey("words.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(String(50), default="default", comment="用户标识（后续可扩展为真实用户系统）")
-    status = Column(String(20), default="favorite", comment="favorite | learned")
+    status = Column(String(20), default="favorite", comment="mastered | favorite | learned")
     learned_at = Column(DateTime, nullable=True, comment="标记为 learned 的时间")
     created_at = Column(DateTime, default=datetime.utcnow)
 

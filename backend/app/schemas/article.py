@@ -22,6 +22,7 @@ class ArticleResponse(BaseModel):
     content_japanese: str
     content_chinese: str
     level: str
+    image_url: Optional[str] = None
     created_at: Optional[str] = None
     words: list[ArticleWordBrief] = []
 
@@ -41,7 +42,8 @@ class ArticleBrief(BaseModel):
 class ArticleGenerateRequest(BaseModel):
     word_ids: list[int]
     level: str = "N5"
-
-
-class ArticleGenerateResponse(BaseModel):
-    article: ArticleResponse
+    api_key: Optional[str] = None
+    pexels_key: Optional[str] = None
+    content_type: str = ""
+    style: str = ""
+    source: str = ""

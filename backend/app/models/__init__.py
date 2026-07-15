@@ -1,5 +1,6 @@
 from app.models.word import Word
 from app.models.favorite import Favorite
 from app.models.article import Article
+from app.models.user import User
 
-__all__ = ["Word", "Favorite", "Article"]
+__all__ = ["Word", "Favorite", "Article", "User"]
