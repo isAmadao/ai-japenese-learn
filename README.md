@@ -37,6 +37,8 @@ ai-japenese-learn/
 - npm 或 yarn
 - （可选）Redis（用于 LLM 缓存，不配置也不影响核心功能）
 
+> 💡 **开发模式无需外部服务**：项目默认启用 `AUTH_DISABLED=true`，自动创建 dev/admin 用户，不依赖 Redis、auth-service 或任何外部容器。clone 后直接跑即可。部署时设置 `AUTH_DISABLED=false` 并接入中央认证服务。
+
 ### 1. 后端
 
 **方式一：conda 虚拟环境（推荐，已创建）**
@@ -199,7 +201,7 @@ speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja'))
 
 - [ ] LangChain Skills 自定义技能
 - [ ] MCP (Model Context Protocol) 集成
-- [ ] 用户认证系统
+- [x] 用户认证系统（自包含 dev 模式 / 中央 auth-service 生产模式）
 - [ ] Milvus 向量检索（语义搜索单词）
 - [ ] Redis 缓存优化
 - [ ] 单词学习进度追踪

@@ -53,6 +53,25 @@ bearer_scheme = HTTPBearer(auto_error=False)
 # ── Dependency: get_current_user (returns User ORM) ───────────
 
 
+def _ensure_dev_user(db: Session) -> User:
+    """Create or return the default dev/admin user (AUTH_DISABLED mode)."""
+    user = db.query(User).filter(User.id == 1).first()
+    if user is None:
+        user = User(
+            id=1,
+            username="dev",
+            email="dev@localhost",
+            password_hash="",
+            role="admin",
+            is_verified=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        logger.info("Auto-created dev user (AUTH_DISABLED mode)")
+    return user
+
+
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: Session = Depends(get_db),
@@ -61,7 +80,14 @@ def get_current_user(
 
     If the user doesn't exist in the local database yet, a minimal local
     record is auto-created (id maps to auth-service's uid).
+
+    When settings.AUTH_DISABLED is True (default), skips JWT verification
+    and returns a default dev/admin user — no external auth-service needed.
     """
+    # ── Dev mode: no external auth-service required ─────────────
+    if settings.AUTH_DISABLED:
+        return _ensure_dev_user(db)
+
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

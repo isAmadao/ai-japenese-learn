@@ -52,7 +52,12 @@ class Settings:
     LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen-plus")
     LLM_EMBEDDING_MODEL: str = os.getenv("LLM_EMBEDDING_MODEL", "text-embedding-v3")
 
-    # Auth service (central JWT issuer)
+    # Auth — self-contained dev mode vs central auth-service
+    # When AUTH_DISABLED=True, the backend creates a default admin user
+    # and skips JWT verification so no external auth-service is needed.
+    AUTH_DISABLED: bool = os.getenv("AUTH_DISABLED", "true").lower() == "true"
+
+    # Auth service (central JWT issuer) — only used when AUTH_DISABLED=False
     AUTH_SERVICE_URL: str = os.getenv("AUTH_SERVICE_URL", "http://localhost:8080")
     # Fallback: explicit RSA public key PEM (used when AUTH_SERVICE_URL is empty)
     JWT_PUBLIC_KEY: str = os.getenv("JWT_PUBLIC_KEY", "")
