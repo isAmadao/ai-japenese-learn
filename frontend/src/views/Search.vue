@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { searchWords, searchWordsByImage } from '@/api'
+import { searchWords, searchWordsByImage, aiAddWord } from '@/api'
 import { speakJapanese } from '@/utils/speech'
 import { typeColor } from '@/utils/shared'
 import { STORAGE_KEYS } from '@/utils/constants'
@@ -32,6 +32,9 @@ onMounted(() => {
 })
 
 watch(query, (newVal) => {
+  aiAddMsg.value = ''
+  aiAddedId.value = null
+  aiAdding.value = false
   // Merge with existing URL params so image mode (img=1) isn't lost
   router.replace({ query: { ...route.query, q: newVal || undefined } })
 
@@ -52,7 +55,7 @@ async function doTextSearch() {
   loading.value = true
   searched.value = true
   try {
-    const data = await searchWords(q, 30)
+    const data = await searchWords(q, 5)
     results.value = data.results
     total.value = data.total
   } catch {
@@ -60,6 +63,80 @@ async function doTextSearch() {
     total.value = 0
   } finally {
     loading.value = false
+  }
+}
+
+// ── AI 补词 ────────────────────────────────────────────────
+const aiAdding = ref(false)
+const aiAddMsg = ref('')
+const aiAddedId = ref<number | null>(null)
+
+const AI_ADD_RATE_LIMIT_SECONDS = 5  // 与后端 AI_ADD_RATE_LIMIT_SECONDS 一致
+const aiCountdown = ref(0)
+let aiCountdownTimer: ReturnType<typeof setInterval> | null = null
+
+function startAiCountdown(seconds: number) {
+  aiCountdown.value = seconds
+  if (aiCountdownTimer) clearInterval(aiCountdownTimer)
+  aiCountdownTimer = setInterval(() => {
+    aiCountdown.value -= 1
+    if (aiCountdown.value <= 0) {
+      aiCountdown.value = 0
+      if (aiCountdownTimer) clearInterval(aiCountdownTimer)
+      aiCountdownTimer = null
+    }
+  }, 1000)
+}
+
+onUnmounted(() => {
+  if (aiCountdownTimer) clearInterval(aiCountdownTimer)
+})
+
+function looksJapanese(text: string): boolean {
+  // 平假名/片假名/CJK —— 过滤 ASCII/数字，最终判定交给后端 LLM
+  return /[぀-ヿ一-鿿]/.test(text)
+}
+
+async function handleAiAdd() {
+  const q = query.value.trim()
+  const m = mode.value
+  if (!q) return
+  aiAdding.value = true
+  aiAddMsg.value = ''
+  try {
+    const res = await aiAddWord(q)
+    startAiCountdown(AI_ADD_RATE_LIMIT_SECONDS)
+    if (q !== query.value.trim() || mode.value !== m) return  // 用户已改 query/切 tab，丢弃过期响应
+    if (res.status === 'added' || res.status === 'found') {
+      if (res.word) {
+        const item: SearchResultItem = {
+          id: res.word.id,
+          name: res.word.name,
+          kana: res.word.kana,
+          translation: res.word.translation,
+          description: res.word.description || '',
+          type: res.word.type || '',
+          score: 1.0,
+        }
+        results.value = [item]
+        total.value = 1
+        aiAddedId.value = res.new ? res.word.id : null
+        aiAddMsg.value = res.status === 'added'
+          ? `已把「${res.word.name}」加入词库 ✨`
+          : `「${res.word.name}」已在词库中`
+      }
+    } else if (res.status === 'not_japanese') {
+      aiAddMsg.value = res.reason || `「${q}」看起来不是日语单词，无法添加`
+    }
+  } catch (e: any) {
+    if (e?.response?.status === 429) {
+      startAiCountdown(AI_ADD_RATE_LIMIT_SECONDS)
+      aiAddMsg.value = '操作太频繁，请稍后再试'
+    } else {
+      aiAddMsg.value = 'AI 补词失败，请稍后再试'
+    }
+  } finally {
+    aiAdding.value = false
   }
 }
 
@@ -227,6 +304,9 @@ function handleSpeak(text: string) {
 }
 
 function switchMode(m: 'text' | 'image') {
+  aiAddMsg.value = ''
+  aiAddedId.value = null
+  aiAdding.value = false
   mode.value = m
   results.value = []
   total.value = 0
@@ -392,6 +472,7 @@ function searchOcrText(text: string) {
           <div class="result-main">
             <div class="result-left">
               <span class="result-name">{{ item.name }}</span>
+              <span v-if="aiAddedId === item.id" class="ai-badge">AI 添加</span>
               <span class="result-kana">{{ item.kana }}</span>
             </div>
             <div class="result-right">
@@ -414,7 +495,17 @@ function searchOcrText(text: string) {
     <!-- ── No results ─────────────────────────── -->
     <div v-if="searched && results.length === 0 && !loading && !processing && !imageError" class="search-status no-results">
       <template v-if="mode === 'text'">
-        没有找到与「{{ query }}」相关的单词
+        <div>没有找到与「{{ query }}」相关的单词</div>
+        <div v-if="looksJapanese(query)" class="ai-add-block">
+          <button v-if="aiCountdown > 0" class="ai-add-btn ai-add-countdown" disabled>
+            请等待 {{ aiCountdown }}s
+          </button>
+          <button v-else-if="!aiAdding" class="ai-add-btn" @click="handleAiAdd">
+            没有这个词？让 AI 添加 ✨
+          </button>
+          <span v-else class="ai-adding">AI 正在判断并补充词条…</span>
+        </div>
+        <p v-if="aiAddMsg" class="ai-add-msg">{{ aiAddMsg }}</p>
       </template>
       <template v-else>
         <div class="no-results-icon">🔎</div>
@@ -911,5 +1002,50 @@ function searchOcrText(text: string) {
 @keyframes toast-out {
   from { opacity: 1; }
   to { opacity: 0; }
+}
+
+/* ── AI 补词 ─────────────────────────────── */
+.ai-add-block {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+.ai-add-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  padding: 10px 16px;
+  border: 3px solid var(--golden);
+  background: var(--cream);
+  color: var(--warm-brown);
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--golden);
+  transition: all 0.05s step-start;
+}
+.ai-add-btn:hover {
+  background: var(--golden-light);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--golden);
+}
+.ai-add-countdown {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ai-adding {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+.ai-add-msg {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: var(--grass-dark);
+  text-align: center;
+}
+.ai-badge {
+  margin-left: 6px;
+  font-size: 0.55rem;
+  padding: 2px 6px;
+  border: 2px solid var(--golden);
+  color: var(--warm-brown);
+  vertical-align: middle;
 }
 </style>

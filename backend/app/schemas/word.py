@@ -86,3 +86,15 @@ class SearchResponse(BaseModel):
     results: list[SearchResultItem]
     total: int
     query: str
+
+
+class AiAddRequest(BaseModel):
+    query: str
+    api_key: Optional[str] = None
+
+
+class AiAddResponse(BaseModel):
+    status: str
+    word: Optional[dict] = None
+    new: bool = False
+    reason: Optional[str] = None

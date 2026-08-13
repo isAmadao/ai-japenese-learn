@@ -4,9 +4,9 @@ When FRONTEND_DIST env var is set (Docker mode), serves the built
 Vue frontend as static files.  Otherwise runs as API-only for development.
 """
 
+import logging
 import os
 import traceback as _traceback
-import logging
 from contextlib import asynccontextmanager
 
 # Show all app logs from INFO level
@@ -14,11 +14,10 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.config import settings
+from app.core.config import settings as core_settings
 from app.core.database import init_db
 from app.core.redis_client import redis_client
 from app.core.milvus_client import milvus_client
@@ -33,7 +32,7 @@ FRONTEND_DIST = os.getenv("FRONTEND_DIST", "")
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     init_db()
-    print(f"✓ Database initialized ({'SQLite' if settings.USE_SQLITE else 'MySQL'})")
+    print(f"✓ Database initialized ({'SQLite' if core_settings.USE_SQLITE else 'MySQL'})")
 
     try:
         await redis_client.connect()
@@ -150,12 +149,11 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "llm_configured": bool(settings.LLM_API_KEY)}
+    return {"status": "ok", "llm_configured": bool(core_settings.LLM_API_KEY)}
 
 
 # ── Docker mode: serve built frontend (SPA compatible) ────────
 if FRONTEND_DIST and os.path.isdir(FRONTEND_DIST):
-    static_files = StaticFiles(directory=FRONTEND_DIST, html=True)
 
     class SPAStaticFiles(StaticFiles):
         """Serve Vue SPA — catch-all returns index.html for non-file routes."""

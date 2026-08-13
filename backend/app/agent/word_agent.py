@@ -290,6 +290,74 @@ class WordAgent(BaseAgent):
         # Final fallback: return empty
         return []
 
+    def analyze_word(self, query: str, api_key: Optional[str] = None) -> dict:
+        """判断 query 是否为日语单词；若是则生成完整词条。
+
+        *api_key* overrides the instance/default API key for this call.
+        Returns one of:
+          {"is_japanese": False, "reason": "..."}
+          {"is_japanese": True, "word": {name, kana, translation, description, type, example_sentences}}
+        """
+        system_msg = "你是一位专业的日语教师。请判断输入的词是否是一个日语单词，并始终用JSON格式回复。"
+        user_prompt = f"""请判断「{query}」是否是一个日语单词。
+
+如果它是一个日语单词（汉字/假名/片假名，包括外来语），返回：
+{{"is_japanese": true, "word": {{
+  "name": "日语表记（若 query 是假名，则给出常见的汉字写法；若无汉字则用假名）",
+  "kana": "平假名读音",
+  "translation": "中文释义",
+  "description": "简要用法说明或记忆提示（一两句话）",
+  "type": "N1-N5 难度级别",
+  "example_sentences": [{{"japanese": "日语句子", "chinese": "中文翻译"}}, ...3个]
+}}}}
+
+如果不是日语单词（是中文、英文、乱码等），返回：
+{{"is_japanese": false, "reason": "简要说明它为什么不是日语单词"}}
+
+只返回JSON，不要其他内容。"""
+        raw = self._generate(system_msg, user_prompt, use_cache=False, api_key=api_key)
+        try:
+            data = extract_json(raw)
+        except Exception as e:
+            logger.warning(f"analyze_word parse failed: {e}")
+            raise RuntimeError(f"AI 解析失败: {e}")
+
+        if not isinstance(data, dict):
+            # extract_json 对外层是对象、内含数组（如 example_sentences）的 JSON
+            # 会误取到内层数组并返回 list。此时用 json.loads 严格解析兜底。
+            try:
+                data = json.loads(raw)
+            except Exception as e:
+                logger.warning(f"analyze_word strict parse failed: {e}")
+                raise RuntimeError(f"AI 解析失败: {e}")
+
+        if not isinstance(data, dict):
+            raise RuntimeError("AI 返回格式异常")
+
+        if not data.get("is_japanese"):
+            return {"is_japanese": False, "reason": data.get("reason", "该词看起来不是日语单词")}
+
+        word = data.get("word")
+        if not isinstance(word, dict) or not word.get("name"):
+            raise RuntimeError("AI 未返回有效的单词信息")
+
+        name = word["name"]
+        kana = word.get("kana", "")
+        if kana:
+            corrected = verify_kana(name, kana)
+            if corrected:
+                word["kana"] = corrected
+        if not word.get("type"):
+            word["type"] = "N1"
+        if not word.get("translation"):
+            word["translation"] = ""
+        sentences = word.get("example_sentences", []) or []
+        word["example_sentences"] = [
+            s for s in sentences
+            if isinstance(s, dict) and s.get("japanese") and s.get("chinese")
+        ][:3]
+        return {"is_japanese": True, "word": word}
+
     def store_vector(self, word_id: int, word_dict: dict) -> bool:
         """Generate embedding and store in Milvus.
 

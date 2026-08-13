@@ -19,6 +19,8 @@ from app.schemas.word import (
     FavoriteToggleResponse,
     SearchResponse,
     SearchResultItem,
+    AiAddRequest,
+    AiAddResponse,
 )
 from app.services.word_service import word_service
 
@@ -102,6 +104,30 @@ def search_words(
         total=result["total"],
         query=result["query"],
     )
+
+
+@router.post("/ai-add", response_model=AiAddResponse)
+def ai_add_word(
+    body: AiAddRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """AI 补词 — 判断 query 是否为日语单词，若是则补充词条入库 + ES 索引。
+
+    必须放在 /{word_id} 路由之前注册，避免路径歧义。
+    """
+    try:
+        result = word_service.add_missing_word(
+            db, body.query, user_id=str(current_user.id), api_key=body.api_key,
+        )
+    except RuntimeError as e:
+        # LLM 解析/词条字段异常 → 502 而非裸 500
+        raise HTTPException(status_code=502, detail=str(e))
+    if result.get("status") == "rate_limited":
+        raise HTTPException(status_code=429, detail="操作太频繁，请稍后再试")
+    if result.get("status") == "invalid":
+        raise HTTPException(status_code=400, detail=result.get("reason", "参数无效"))
+    return AiAddResponse(**result)
 
 
 @router.get("/{word_id}", response_model=WordDetailResponse)

@@ -12,6 +12,7 @@ Data flow:
 import json
 import logging
 import random
+import hashlib
 from datetime import datetime
 from typing import Optional
 
@@ -28,6 +29,11 @@ logger = logging.getLogger(__name__)
 
 # Redis key prefix for session-cached words
 _SESSION_CACHE_PREFIX = "session_words:"
+
+# ── AI 补词（search miss → LLM enrich）────────────────────
+AI_ADD_RATE_LIMIT_SECONDS = 5
+AI_ADD_CACHE_TTL_SUCCESS = 7 * 24 * 3600   # 7 days — 成功词条
+AI_ADD_CACHE_TTL_REJECT = 24 * 3600        # 24h — 非日语拒绝结论
 
 
 def _session_cache_key(session_id: str) -> str:
@@ -643,6 +649,7 @@ class WordService:
         q = q.strip()
         seen_ids: set[int] = set()
         scored: list[dict] = []
+        es_ok = False
 
         try:
             from elasticsearch import Elasticsearch
@@ -705,36 +712,171 @@ class WordService:
             except Exception as e:
                 logger.debug(f"Vector search unavailable, BM25 only: {e}")
 
+            es_ok = True
         except Exception as e:
             logger.warning(f"ES search failed, falling back to SQL LIKE: {e}")
-            # ── Graceful degradation: SQL LIKE ──────────────
-            pattern = f"%{q}%"
-            keyword_results = (
-                db.query(Word)
-                .filter(
-                    Word.name.ilike(pattern)
-                    | Word.kana.ilike(pattern)
-                    | Word.translation.ilike(pattern)
-                )
-                .limit(top_k)
-                .all()
-            )
-            for w in keyword_results:
-                scored.append({
-                    "id": w.id,
-                    "name": w.name,
-                    "kana": w.kana,
-                    "translation": w.translation,
-                    "description": w.description,
-                    "type": w.type,
-                    "score": 1.0,
-                })
+            scored = self._search_sql_like(db, q, top_k)
+
+        if es_ok and not scored:
+            # ES 正常但空结果 → 兜底 SQL（词可能只在 DB，如 ES 停机时补的词）
+            scored = self._search_sql_like(db, q, top_k)
 
         return {
             "results": scored[:top_k],
             "total": len(scored),
             "query": q,
         }
+
+    def _search_sql_like(self, db: Session, q: str, top_k: int) -> list[dict]:
+        """SQL LIKE 兜底搜索 — ES 不可用或返回空结果时，从 DB 权威源查词。"""
+        pattern = f"%{q}%"
+        keyword_results = (
+            db.query(Word)
+            .filter(
+                Word.name.ilike(pattern)
+                | Word.kana.ilike(pattern)
+                | Word.translation.ilike(pattern)
+            )
+            .limit(top_k)
+            .all()
+        )
+        scored: list[dict] = []
+        for w in keyword_results:
+            scored.append({
+                "id": w.id,
+                "name": w.name,
+                "kana": w.kana,
+                "translation": w.translation,
+                "description": w.description,
+                "type": w.type,
+                "score": 1.0,
+            })
+        return scored
+
+    # ═══════════════════════════════════════════════════════
+    #  AI 补词 — search miss → LLM 判定并生成 → 入库 + ES 增量
+    # ═══════════════════════════════════════════════════════
+
+    def add_missing_word(
+        self, db: Session, query: str, user_id: str,
+        api_key: Optional[str] = None,
+    ) -> dict:
+        """AI 补词主流程（全部同步）。
+
+        返回 status ∈ {"added", "found", "not_japanese", "rate_limited", "invalid"}。
+        """
+        q = query.strip() if query else ""
+        if not q:
+            return {"status": "invalid", "reason": "查询为空"}
+
+        # ── 门控：明显非日语（无假名/片假名/汉字）──
+        from app.services.japanese_util import looks_japanese
+        if not looks_japanese(q):
+            return {"status": "invalid", "reason": "输入内容看起来不是日语单词"}
+
+        # ── 限频 ──
+        rate_key = f"rate:ai_add:{user_id}"
+        if redis_client._sync_get(rate_key):
+            return {"status": "rate_limited"}
+        redis_client._sync_set(rate_key, "1", ttl=AI_ADD_RATE_LIMIT_SECONDS)
+
+        # ── 结果缓存 ──
+        cache_key = f"ai_add:{hashlib.sha256(q.encode('utf-8')).hexdigest()[:16]}"
+        cached = redis_client._sync_get(cache_key)
+        if cached:
+            try:
+                return json.loads(cached)
+            except Exception:
+                pass  # 损坏/外来缓存值 → 按未命中处理
+
+        # ── DB 查重（词库里已有，但 ES 索引可能缺失/陈旧 → 顺手补进 ES）──
+        existing = db.query(Word).filter(
+            (Word.name == q) | (Word.kana == q)
+        ).first()
+        if existing:
+            try:
+                self._index_word_to_es(existing)
+            except Exception as e:
+                logger.warning(f"ES index failed for existing word {existing.name}: {e}")
+            result = {"status": "found", "word": existing.to_dict(), "new": False}
+            redis_client._sync_set(cache_key, json.dumps(result, ensure_ascii=False), ttl=AI_ADD_CACHE_TTL_SUCCESS)
+            return result
+
+        # ── LLM 判定 + 生成 ──
+        analysis = word_agent.analyze_word(q, api_key=api_key)
+        if not analysis["is_japanese"]:
+            result = {
+                "status": "not_japanese",
+                "reason": analysis.get("reason", "该词看起来不是日语单词"),
+                "new": False,
+            }
+            redis_client._sync_set(cache_key, json.dumps(result, ensure_ascii=False), ttl=AI_ADD_CACHE_TTL_REJECT)
+            return result
+
+        w = analysis["word"]
+
+        # ── 再查重（LLM 可能规范化了 name）──
+        dup = db.query(Word).filter(
+            (Word.name == w["name"]) | (Word.kana == w.get("kana", ""))
+        ).first()
+        if dup:
+            result = {"status": "found", "word": dup.to_dict(), "new": False}
+            redis_client._sync_set(cache_key, json.dumps(result, ensure_ascii=False), ttl=AI_ADD_CACHE_TTL_SUCCESS)
+            return result
+
+        # ── 入库 ──
+        word = Word(
+            name=w["name"],
+            kana=w.get("kana", ""),
+            translation=w.get("translation", ""),
+            description=w.get("description"),
+            type=w.get("type"),
+            example_sentences=w.get("example_sentences", []),
+        )
+        db.add(word)
+        db.commit()
+        db.refresh(word)
+
+        # ── ES 增量索引（尽力而为，失败不影响已入库）──
+        try:
+            self._index_word_to_es(word)
+        except Exception as e:
+            logger.warning(f"ES index failed for {word.name}: {e}")
+
+        result = {"status": "added", "word": word.to_dict(), "new": True}
+        redis_client._sync_set(cache_key, json.dumps(result, ensure_ascii=False), ttl=AI_ADD_CACHE_TTL_SUCCESS)
+        return result
+
+    def _index_word_to_es(self, word: Word) -> None:
+        """单文档写入 jp_words 索引 + 强制刷新（尽力而为）。"""
+        from elasticsearch import Elasticsearch
+        es = Elasticsearch(["http://localhost:9200"], request_timeout=10)
+
+        # 读取 embedding 维度（按索引 mapping 为准）
+        if not hasattr(self, "_es_embedding_dim"):
+            mapping = es.indices.get_mapping(index="jp_words")
+            self._es_embedding_dim = (
+                mapping["jp_words"]["mappings"]["properties"]
+                .get("embedding", {})
+                .get("dims", 0)
+            )
+
+        doc = {
+            "name": word.name,
+            "kana": word.kana,
+            "translation": word.translation,
+            "type": word.type or "",
+            "description": word.description or "",
+        }
+        # 向量：维度匹配才带，否则省略（BM25 仍可搜）
+        from app.services.vector_service import vector_service
+        vec = vector_service.embed_local(f"{word.name} {word.kana} {word.translation}")
+        if vec and self._es_embedding_dim and len(vec) == self._es_embedding_dim:
+            doc["embedding"] = vec
+
+        es.index(index="jp_words", id=word.id, document=doc)
+        # refresh_interval=30s → 必须强制刷新，补完即可搜
+        es.indices.refresh(index="jp_words")
 
 
 word_service = WordService()

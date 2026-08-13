@@ -310,3 +310,20 @@ def uninstall_mecab() -> dict:
 
     # Even if pip failed, tagger is None → verify_kana uses pykakasi now
     return {"success": True, "message": "已切换至 pykakasi（包文件需重启后清理）"}
+
+
+def looks_japanese(text: str) -> bool:
+    """粗略判断字符串是否含日语字符（平假名/片假名/CJK 汉字）。
+
+    用于 AI 补词的前端/后端门控。注意 CJK 区含中文汉字，无法区分中文，
+    所以这只是过滤 ASCII/数字/乱码的粗筛，最终判断交给 LLM。
+    """
+    for ch in text:
+        cp = ord(ch)
+        if 0x3040 <= cp <= 0x309F:   # 平假名
+            return True
+        if 0x30A0 <= cp <= 0x30FF:   # 片假名
+            return True
+        if 0x4E00 <= cp <= 0x9FFF:   # CJK 统一表意文字
+            return True
+    return False

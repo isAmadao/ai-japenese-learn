@@ -1,7 +1,7 @@
 /** API client — communicates with the FastAPI backend */
 
 import axios from 'axios'
-import type { CachedWord, WordDetailResponse, Article, PaginatedResponse, LearnedTypeCounts, CaptchaChallenge, VerifyCaptchaResult, SendCodeResult, VerifyCodeResult, SearchResponse, ImageSearchResponse } from '@/types'
+import type { CachedWord, WordDetailResponse, Article, PaginatedResponse, LearnedTypeCounts, CaptchaChallenge, VerifyCaptchaResult, SendCodeResult, VerifyCodeResult, SearchResponse, SearchResultItem, ImageSearchResponse } from '@/types'
 
 export const http = axios.create({
   baseURL: '/api',
@@ -295,8 +295,6 @@ export async function toggleFavorite(
 
 // --- Auth ---
 
-export interface AuthResponse {
-
 export async function fetchCaptcha(): Promise<CaptchaChallenge> {
   const { data } = await http.get('/auth/captcha')
   return data
@@ -314,21 +312,6 @@ export async function sendVerificationCode(email: string, captchaToken: string):
 
 export async function verifyEmailCode(email: string, code: string): Promise<VerifyCodeResult> {
   const { data } = await http.post('/auth/verify-code', { email, code })
-  return data
-}
-
-export async function registerWithEmail(
-  nickname: string,
-  email: string,
-  password: string,
-  registerToken: string,
-): Promise<AuthResponse> {
-  const { data } = await http.post('/auth/register/email', {
-    nickname,
-    email,
-    password,
-    register_token: registerToken,
-  })
   return data
 }
 
@@ -407,6 +390,22 @@ export async function searchWordsByImage(file: File): Promise<ImageSearchRespons
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000, // 2 minutes — OCR + LLM can be slow
   })
+  return data
+}
+
+// ── AI 补词 — 搜索无结果时用 LLM 判断并补充日语单词 ──────
+
+export interface AiAddResult {
+  status: 'added' | 'found' | 'not_japanese'
+  word?: SearchResultItem | null
+  new?: boolean
+  reason?: string
+}
+
+export async function aiAddWord(query: string, apiKey?: string): Promise<AiAddResult> {
+  const body: Record<string, any> = { query }
+  if (apiKey) body.api_key = apiKey
+  const { data } = await http.post('/words/ai-add', body)
   return data
 }
 

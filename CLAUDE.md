@@ -47,6 +47,11 @@ docker compose up -d app
 docker compose ps
 ```
 
+### 4. Git 提交策略
+- **不自动提交 git** — Claude 生成完整代码后不主动 commit，不 `git add` / `git commit`
+- 每次完整代码生成完成后，需**人工核验**：开发者验证功能无误后，再决定手动提交还是自动提交
+- 设计文档 / 开发日志等中间产物同样遵循此规则，不自动提交
+
 ## Skills
 
 ### 创建新 Skill

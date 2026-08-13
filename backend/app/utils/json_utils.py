@@ -17,13 +17,15 @@ def extract_json(text: str):
     match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if match:
         text = match.group(1)
-    # Find outermost { ... } or [ ... ]
-    first = text.find("[")
-    if first == -1:
-        first = text.find("{")
-    last = text.rfind("]")
-    if last == -1 or last < first:
+    # Find outermost { ... } or [ ... ] — whichever opens first is the outer container
+    open_b = text.find("{")
+    open_a = text.find("[")
+    if open_b != -1 and (open_a == -1 or open_b < open_a):
+        first = open_b
         last = text.rfind("}")
+    else:
+        first = open_a
+        last = text.rfind("]")
     if first != -1 and last != -1 and last > first:
         text = text[first: last + 1]
 

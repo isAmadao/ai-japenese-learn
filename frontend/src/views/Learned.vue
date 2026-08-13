@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchLearned, fetchLearnedTypeCounts, markAsMastered } from '@/api'
 import { speakJapanese, stopSpeech } from '@/utils/speech'
+import { TYPE_TABS } from '@/utils/constants'
 import type { WordResponse, LearnedTypeCounts } from '@/types'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 
@@ -18,18 +19,6 @@ const error = ref<string | null>(null)
 const actionMsg = ref<string | null>(null)
 const activeType = ref<string | null>(null)
 const typeCounts = ref<LearnedTypeCounts>({ N5: 0, N4: 0, N3: 0, N2: 0, N1: 0 })
-
-const typeTabs = [
-  { key: null, label: 'All' },
-  { key: 'N5', label: 'N5' },
-  { key: 'N4', label: 'N4' },
-  { key: 'N3', label: 'N3' },
-  { key: 'N2', label: 'N2' },
-  { key: 'N1', label: 'N1' },
-]
-
-import { TYPE_TABS } from '@/utils/constants'
-const typeTabs = TYPE_TABS
 
 onMounted(async () => {
   await loadTypeCounts()
@@ -97,7 +86,7 @@ function tabCount(key: string | null): string {
 
     <div class="type-tabs">
       <button
-        v-for="tab in typeTabs"
+        v-for="tab in TYPE_TABS"
         :key="tab.key || 'all'"
         class="type-tab"
         :class="{ active: activeType === tab.key }"
